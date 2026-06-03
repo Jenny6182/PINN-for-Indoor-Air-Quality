@@ -1,0 +1,2 @@
+file,Q_true,S_vol_true,S_true,Q_est,S_est,S_vol_est,final_loss_total,final_loss_data,final_loss_phys
+iaq_Q100_S0.20.csv,100.0,0.2,200000.0,98.8148,197735.5781,0.197736,0.001375,0.001373,0.111693

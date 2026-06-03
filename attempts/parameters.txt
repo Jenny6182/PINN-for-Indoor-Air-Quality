@@ -1,0 +1,17 @@
+N_HIDDEN       = 3        # hidden layers
+HIDDEN_DIM     = 64       # neurons per layer
+N_COLLOC       = 1000     # collocation points for physics loss
+LR_NET         = 3e-3     # learning rate for network weights
+LR_PARAMS      = 1e-2     # (slightly higher) for log_Q, log_S
+EPOCHS         = 8000     # total training epochs
+WARMUP_EPOCHS  = 500      # phase-1: data loss only
+LAMBDA_PHYS    = 1.0      # final physics loss weight  (ramps from 0)
+RAMP_EPOCHS    = 2000     # ramp lambda_phys over this many epochs after warmup
+ 
+# initial guesses — deliberately off from true values to test recovery
+# true: Q≈200, S≈1e5;  we start at Q=100, S=5e4
+LOG_Q_INIT = np.log(100.0)
+LOG_S_INIT = np.log(5e4)
+
+N_colloc  LR_NET  LR_Param  Epochs  _warmup_epochs  lambda_phys  ramp_epochs
+ 3000                                                  10           500

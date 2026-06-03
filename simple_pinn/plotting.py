@@ -21,27 +21,27 @@ def plot_loss_curves(ax, epochs_arr, history, warmup_epochs):
     ax.legend(fontsize=9)
     ax.grid(alpha=0.3)
 
+# True Q exists
+def plot_Q_convergence(ax, epochs_arr, history, Q_TRUE):
+    """Plot Q parameter convergence."""
+    ax.plot(epochs_arr, history["Q"], lw=1.5, color="#e67e22")
+    ax.axhline(Q_TRUE, color="black", ls="--", lw=1, label=f"True Q = {Q_TRUE:.2f}")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Q  [m³/h]")
+    ax.set_title("Recovered Q over Training")
+    ax.legend(fontsize=9)
+    ax.grid(alpha=0.3)
 
-# def plot_Q_convergence(ax, epochs_arr, history, Q_TRUE):
-#     """Plot Q parameter convergence."""
-#     ax.plot(epochs_arr, history["Q"], lw=1.5, color="#e67e22")
-#     # ax.axhline(Q_TRUE, color="black", ls="--", lw=1, label=f"True Q = {Q_TRUE:.2f}")
-#     ax.set_xlabel("Epoch")
-#     ax.set_ylabel("Q  [m³/h]")
-#     ax.set_title("Recovered Q over Training")
-#     ax.legend(fontsize=9)
-#     ax.grid(alpha=0.3)
 
-
-# def plot_S_convergence(ax, epochs_arr, history, S_TRUE):
-#     """Plot S parameter convergence."""
-#     ax.plot(epochs_arr, history["S"], lw=1.5, color="#8e44ad")
-#     ax.axhline(S_TRUE, color="black", ls="--", lw=1, label=f"True S = {S_TRUE:.2e}")
-#     ax.set_xlabel("Epoch")
-#     ax.set_ylabel("S  [ppm·m³/h]")
-#     ax.set_title("Recovered S over Training")
-#     ax.legend(fontsize=9)
-#     ax.grid(alpha=0.3)
+def plot_S_convergence(ax, epochs_arr, history, S_TRUE):
+    """Plot S parameter convergence."""
+    ax.plot(epochs_arr, history["S"], lw=1.5, color="#8e44ad")
+    ax.axhline(S_TRUE, color="black", ls="--", lw=1, label=f"True S = {S_TRUE:.2e}")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("S  [ppm·m³/h]")
+    ax.set_title("Recovered S over Training")
+    ax.legend(fontsize=9)
+    ax.grid(alpha=0.3)
 
 
 def plot_predictions_vs_measurements(ax, model, t_np, c_np, t_train_np, c_train_np,
@@ -62,9 +62,9 @@ def plot_predictions_vs_measurements(ax, model, t_np, c_np, t_train_np, c_train_
 
     # Analytical solution using true params as a visual reference
     t_ref     = t_full_np.flatten()
-    # C_ss_true = C_out + S_TRUE / Q_TRUE
-    # C_analytic = C_ss_true + (C0 - C_ss_true) * np.exp(-Q_TRUE * t_ref / V)
-    # ax.plot(t_ref, C_analytic, "--", color="#27ae60", lw=1.5, label="Analytical (true params)")
+    C_ss_true = C_out + S_TRUE / Q_TRUE
+    C_analytic = C_ss_true + (C0 - C_ss_true) * np.exp(-Q_TRUE * t_ref / V)
+    ax.plot(t_ref, C_analytic, "--", color="#27ae60", lw=1.5, label="Analytical (true params)")
 
     ax.set_xlabel("Time [h]")
     ax.set_ylabel("CO₂ [ppm]")

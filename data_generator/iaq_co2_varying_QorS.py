@@ -67,6 +67,32 @@ Q_func_B = lambda t: Q_B # constant
 S_func_B = make_step_func(S_vol_values_B*1e6, segment_duration, n_segments)
 
 
+
+def extract_schedule(values_Q, values_S, segment_duration, n_segments,
+                     Q_const=None, S_const=None, mode="varying_Q"):
+    """
+    Returns:
+        change_points: list of times [0.5, 1.0, 1.5, ...]
+        Q_list: per-segment Q values (or constant repeated)
+        S_list: per-segment S values (or constant repeated)
+        Q_constant / S_constant: scalar constants when applicable
+    """
+    change_points = [(i + 1) * segment_duration for i in range(n_segments)]
+
+    if mode == "varying_Q":
+        Q_list = list(values_Q)
+        S_list = [S_const] * n_segments
+        return change_points, Q_list, S_list, S_const
+
+    elif mode == "varying_S":
+        Q_list = [Q_const] * n_segments
+        S_list = list(values_S)
+        return change_points, Q_list, S_list, Q_const
+
+    else:
+        raise ValueError("mode must be 'varying_Q' or 'varying_S'")
+
+
 # ----------- simulate and save ----------
 def simulate_and_save(Q_func, S_func, label, OUT):
     """
@@ -168,16 +194,28 @@ def simulate_and_save(Q_func, S_func, label, OUT):
     fig.savefig(png_path, dpi=130, bbox_inches="tight")
     print(f"Saved {png_path}")
 
+    tau_list = []
+    Q_list = []
+    S_list = []
+
     # print segment summary
     print(f"\n  Segment values for {label}:")
     print(f"  {'seg':>4}  {'t_start':>8}  {'t_end':>6}  {'Q':>8}  {'S_vol':>8}")
     for i in range(n_segments):
         t_start = i * segment_duration
+        tau_list.append(t_start)
         t_end   = (i + 1) * segment_duration
         q_val   = Q_func(t_start)
+        Q_list.append(q_val)
         s_val   = S_func(t_start) / 1e6
+        S_list.append(s_val)
         print(f"  {i:>4}  {t_start:>8.2f}  {t_end:>6.2f}  {q_val:>8.1f}  {s_val:>8.4f}")
+
     print()
+
+    print("changepoints: " , tau_list)
+    print("Q_list: ", Q_list)
+    print("S_list: ", S_list)
 
 
 # run both scenarios

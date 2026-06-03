@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.linalg import lstsq
 from scipy.ndimage import gaussian_filter1d
-from varying_pinn import load_data
+from varying_pinn.varying_pinn import load_data
 import matplotlib.pyplot as plt
 
 def stage1_scan(t, C_meas, V, C_out, window_size=10):

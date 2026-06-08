@@ -1,4 +1,6 @@
-
+"""Pinn_architecture.py is a module containing components and functions of pinn required for training
+different variants of pinn used for a variety of situations. 
+All other pinn variants are made from components from this file."""
 
 # ------- imports --------
 from pathlib import Path
@@ -9,13 +11,6 @@ import matplotlib.gridspec as gridspec
 from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
-from config.config import V, C_out, C0, SEED
-
-
-#------Set seed------
-# pick a seed and always use it to make the initial weights, for reproducibility while tuning hyperparams
-torch.manual_seed(SEED) # set random numbers in torch
-np.random.seed(SEED) # in numpy
 
 # ------ hyper-parameters ------
 N_HIDDEN = 3        # number of hidden layers
@@ -39,12 +34,17 @@ LOG_S_INIT = np.log(1)
 
 #----- PINN class -----
 class PINN(nn.Module):
-    """PINN consists of a neural network and a parameter model that holds Q, S parameters to be optimized for, which is different for each situation."""
+    """PINN consists of a neural network and a parameter model that holds Q, S parameters 
+    to be optimized for. The parameter model is different depending on variant of situation."""
     def __init__(self, net, param_model):
         super().__init__()
         self.net = net # network
         self.param_model = param_model # parameter model
 
+    @property
+    def params(self):
+        return self.param_model
+    
     def forward(self, t_norm): # forward pass
         return self.net(t_norm)
 
@@ -147,100 +147,113 @@ class SigmoidChangepoint(nn.Module):
 
     def get_Q_S(self, t_phys):
         gate  = torch.sigmoid(self.kappa * (t_phys - self.tau))
-        Q     = torch.exp(self.log_Q_minus) * (1 - gate) + torch.exp(self.log_Q_plus) * gate
-        S     = torch.exp(self.log_S_minus) * (1 - gate) + torch.exp(self.log_S_plus) * gate
+        Q = torch.exp(self.log_Q_minus) * (1 - gate) + torch.exp(self.log_Q_plus) * gate
+        S = torch.exp(self.log_S_minus) * (1 - gate) + torch.exp(self.log_S_plus) * gate
         return Q, S
     
 
 def train_loop(model, opt_net, opt_params, sched_net, sched_params,
                T_train, C_train, T_col, stats,
                epochs, warmup_epochs, lambda_phys, ramp_epochs,
-               history, log_fn=None):
-    
-    """The training loop for PINN: includes warm-up stage, ramp, auto_scale, loss combination, backward, step.
+               history,
+               physics_residual_fn,
+               physics_kwargs=None,
+               log_fn=None):
+
+    """
+    Generic training loop for PINN, including warm-up stage, ramp, auto_scale, loss combination, backward, step.
+
+    ### Model Training Specific Arguments
     model: the feedforward network, used to get predictions
     opt_net: the adam optimizer for network weights
     opt_params: the adam optimizer for physical parameters only
     sched_net: the cosine annealing scheduler attached to opt_net
     sched_params: the cosine annealing scheduler attached to opt_oarans
+    
+    ### Training data and information Arguments
     T_train: normalized time tensor
     C_train: normalized CO2 tensor
     T_col: normalized time tensor for collocation points
     stats: dictionary containing t_min, t_max, y_mean, y_std
+
+    ### Hyperparameter Arguments
     epochs: total number of training iterations
     warmup_epochs: how many epochs to use data loss only before using incorporating physics loss
     lambda_phys: the target weight for physics loss when fully ramped up, 1.0 means physics loss is balanced with data loss
     ramp_epochs: how many epochs after warm-up to linearly increase the physics weight from 0 to its full value
+    
+    ### Physics Arguments
+    physics_residual_fn: Function that computes the PINN residual
+    physics_kwargs: Extra arguments passed into physics_residual_fn
+
+    ### Logging Arguments
     history: dictionary of lists that accumulate one value per epoch for loss_total, loss_data, loss_phys, and whatever log_fn appends
-    log_fn: optional callback function with signature log_fn(model, history, epoch), called every epoch to append PINN-specific values to history"""
+    log_fn: Logger function specific for the type of pinn you are making
+    """
+    if physics_kwargs is None:
+        physics_kwargs = {}
 
-    t_min  = stats["t_min"]
-    t_max  = stats["t_max"]
-    c_mean = stats["y_mean"]
-    c_std  = stats["y_std"]
-
-    phys_loss_init    = None
+    phys_loss_init = None
     auto_scale_frozen = None
 
     for epoch in range(1, epochs + 1):
-        opt_net.zero_grad()
-        opt_params.zero_grad()
+        opt_net.zero_grad()  # clear old gradients
+        opt_params.zero_grad()  # clear old parameters' gradients
 
-        C_pred_train = model(T_train)
-        loss_data    = torch.mean((C_pred_train - C_train) ** 2)
+        C_pred_train = model(T_train) # forward pass
+        loss_data = torch.mean((C_pred_train - C_train)**2) # compute data loss
+        
+        # --- physics loss (zero during warm-up) ---
+        if epoch <= warmup_epochs: # for the first warmup_epochs we don't use physics loss and only consider data loss
+            loss_phys = torch.tensor(0.0, device=C_train.device) # physics loss = 0
+            lam = 0.0 # lam is total weight of physics loss
+        else: # afterward, we slowly ramp up how much physics loss is weighted until warmup+rampepochs number to full weight
+            residual = physics_residual_fn(model, T_col, stats, **physics_kwargs) # calculate physics residual
+            loss_phys = torch.mean(residual ** 2) # calculate physics loss
 
-        if epoch <= warmup_epochs:
-            loss_phys = torch.tensor(0.0)
-            lam       = 0.0
-        else:
-            residual  = physics_residual(model, T_col, t_min, t_max, c_mean, c_std)
-            loss_phys = torch.mean(residual ** 2)
-
-            if phys_loss_init is None:
-                phys_loss_init    = loss_phys.detach().item()
-                auto_scale_frozen = loss_data.detach().item() / (phys_loss_init + 1e-8)
-
+            if phys_loss_init is None: # if it's the first phys epoch
+                phys_loss_init = (loss_phys.detach().item())  # extract first physics epoch loss from loss phys tensor as our init phys loss
+                auto_scale_frozen = (loss_data.detach().item() / (phys_loss_init + 1e-8))
+            
+            # if it went over 1, choose 1 as ramp frac because that's the largest weight / full weight for physics loss
             ramp_frac = min(1.0, (epoch - warmup_epochs) / ramp_epochs)
-            lam       = lambda_phys * ramp_frac * auto_scale_frozen
-
-        loss = loss_data + lam * loss_phys
-        loss.backward()
-        opt_net.step()
+            lam = (lambda_phys * ramp_frac * auto_scale_frozen)
+         
+        loss = loss_data + lam * loss_phys # calculate total loss
+        loss.backward() # computes all gradients of loss
+        opt_net.step() # change parameter value
         opt_params.step()
-        sched_net.step()
+        sched_net.step() # decay learning rate according to cosine schedule
         sched_params.step()
-
+        
+        # add data to corresponding history list
         history["loss_total"].append(loss.item())
         history["loss_data"].append(loss_data.item())
         history["loss_phys"].append(loss_phys.item())
 
-        # log_fn extracts whatever extra values are relevant for this PINN
+        # call logging function
         if log_fn is not None:
             log_fn(model, history, epoch)
 
     return history
 
 
-def physics_residual(model, T_col, stats):
+def physics_residual(model, T_col, stats, V, C_out):
+    """The physics residual function"""
     C_norm_pred = model(T_col)
-
-    dC_dt_norm = torch.autograd.grad(
-        C_norm_pred, T_col,
-        grad_outputs=torch.ones_like(C_norm_pred),
-        create_graph=True,
-    )[0]
+    dC_dt_norm = torch.autograd.grad(C_norm_pred,T_col,grad_outputs=torch.ones_like(C_norm_pred),
+                                    create_graph=True,)[0]
 
     dt = float(stats["t_max"] - stats["t_min"])
-    Q = model.Q
-    S = model.S
+    t_phys = (stats["t_min"] + T_col*dt)
+
+    Q, S = model.params.get_Q_S(t_phys)
 
     alpha = (Q / V) * dt
-    beta = (S / (V * stats["c_std"])) * dt
-    C_out_norm = (C_out - stats["c_mean"]) / stats["c_std"]
+    beta = (S / (V*stats["y_std"])) * dt
+    C_out_norm = (C_out - stats["y_mean"]) / stats["y_std"]
 
-    rhs = alpha * (C_out_norm - C_norm_pred) + beta
-    residual = dC_dt_norm - rhs
+    rhs = (alpha * (C_out_norm - C_norm_pred) + beta)
+    residual = (dC_dt_norm - rhs)
+
     return residual
-
-
-

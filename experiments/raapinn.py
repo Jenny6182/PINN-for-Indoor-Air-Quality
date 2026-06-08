@@ -70,6 +70,8 @@ from stage2 import run_stage2
 from core.utils.plotting import plot_all_raa, plot_stage2_interval
 from core.pinn.collocation import to_torch
 from configs.config import V, C_out, SEED
+from core.pinn.collocation import to_torch
+from core.utils.preprocessing import normalize_with_stats
 
 import torch
 import numpy as np
@@ -199,9 +201,6 @@ def main(path="varying_datasets/iaq_co2_varying_Q.csv", prominence_factor=0.15):
                                    figsize=(5 * n_intervals, 4),
                                    squeeze=False)
         for i, r in enumerate(stage2_results):
-            from core.pinn.collocation import to_torch
-            from Preprocessing import normalize_with_stats
-
             plot_stage2_interval(
                 ax=axes[0][i],
                 model=r["model"],

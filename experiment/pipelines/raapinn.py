@@ -65,8 +65,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 from core.utils.preprocessing import prepare_training_data, compute_stats
-from stage1 import stage1_scan, find_candidate_intervals
-from stage2 import run_stage2
+from experiment.pipelines.stage1 import stage1_scan, find_candidate_intervals
+from experiment.pipelines.stage2 import run_stage2
 from core.utils.plotting import plot_all_raa, plot_stage2_interval
 from core.pinn.collocation import to_torch
 from configs.config import V, C_out, SEED

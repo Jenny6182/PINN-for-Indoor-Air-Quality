@@ -1,4 +1,4 @@
-from data.generate.simple_data_generator import run_iaq_simulation
+from simple_data_generator import run_iaq_simulation
 
 Q_values = [100, 200, 400, 500, 700, 800]
 S_values = [0.05, 0.1, 0.2, 0.3]

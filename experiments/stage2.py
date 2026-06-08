@@ -20,17 +20,17 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from pinn_architecture import (
+from core.pinn.pinn_architecture import (
     FeedForwardNet,
     SigmoidChangepoint,
     PINN,
     physics_residual,
     train_loop,
 )
-from Preprocessing import compute_stats, normalize_with_stats, standardize_with_stats
+from core.utils.preprocessing import compute_stats, normalize_with_stats, standardize_with_stats
 from core.pinn.collocation import create_uniform_collocation, to_torch
-from logger import make_history_stage2, log_fn_stage2, print_header, print_row
-from config import V, C_out
+from core.utils.logger import make_history_stage2, log_fn_stage2, print_header, print_row
+from experiments.configs.config import V, C_out
 
 
 # ── Stage II hyperparameters ──────────────────────────────────────────────────

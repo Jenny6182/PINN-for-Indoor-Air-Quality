@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from data_preprocessing.Preprocessing import normalize
+from Preprocessing import normalize
 
 def create_uniform_collocation(n_colloc, x):
     return np.linspace(x.min(), x.max(), n_colloc).reshape(-1, 1).astype(np.float32)

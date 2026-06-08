@@ -15,8 +15,8 @@ import io
 from datetime import datetime
 from pathlib import Path
 
-import refactored_single_simple_pinn as pinn
-from batch_train import Tee
+import experiments.refactored_single_simple_pinn as pinn
+from experiments.batch_train import Tee
 
 DATA_FOLDER    = Path("./datasets/")
 RESULTS_FOLDER = Path("./results/")

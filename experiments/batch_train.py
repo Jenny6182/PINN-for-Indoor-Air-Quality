@@ -30,7 +30,7 @@ import contextlib
 from datetime import datetime
 from pathlib import Path
 
-import refactored_single_simple_pinn as pinn
+import experiments.refactored_single_simple_pinn as pinn
 
 
 class Tee:

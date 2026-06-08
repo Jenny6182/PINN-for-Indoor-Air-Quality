@@ -1,1 +1,0 @@
-model.load_state_dict(torch.load("model.pt"))

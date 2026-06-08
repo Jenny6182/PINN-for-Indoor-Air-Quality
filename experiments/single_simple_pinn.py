@@ -49,7 +49,7 @@ import matplotlib.gridspec as gridspec
 from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
-from plotting import plot_all_diagnostics
+from core.utils.plotting import plot_all_simple
 
 # pick a seed and always use it to make the initial weights, for reproducibility while tuning hyperparams
 SEED = 42
@@ -321,7 +321,7 @@ print(f"  (S_vol implied = {model.S.item()/1e6:.4f}  m^3 CO2/h)")
 # --- Generate diagnostic plots ---
 print(Q)
 print(S)
-plot_all_diagnostics(
+plot_all_simple(
     model=model,
     history=history,
     t_np=t_np,

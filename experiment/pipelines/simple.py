@@ -40,6 +40,9 @@ Few problems and design choices
 
 """
 
+#### TODO: refactor this file to only use core functions
+#### SET up batch run format as well as single run format
+
 # ------- imports --------
 from pathlib import Path
 import numpy as np
@@ -47,37 +50,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from sklearn.model_selection import train_test_split
-import torch
-import torch.nn as nn
+from core.utils.preprocessing import *
 from core.utils.plotting import plot_all_simple
 
-# pick a seed and always use it to make the initial weights, for reproducibility while tuning hyperparams
-SEED = 42
-torch.manual_seed(SEED)
-np.random.seed(SEED)
-
-# known physical constants 
-V = 100.0       # zone volume, m^3
-C_out = 420.0   # outdoor CO2, ppm
-S_vol = 0.10
-C0 = 500.0      # initial CO2, ppm (first data point)
-
-# ------ hyper-parameters ------
-N_HIDDEN = 3        # number of hidden layers
-HIDDEN_DIM = 64     # number of neurons per layer
-N_COLLOC = 1000     # number of collocation points
-LR_NET = 3e-3       # learning rate for network weights
-LR_PARAMS = 1e-2    # learning rate for log_Q, log_S parameters
-EPOCHS = 8000       # total training epochs
-
-WARMUP_EPOCHS = 500     # how many epochs to use only data loss
-LAMBDA_PHYS = 1.0       # final physics loss weight
-RAMP_EPOCHS = 2000      # ramp lambda_phys over this many epochs after warmup
-
-# initial guesses of Q and S (log-parametrized)
-LOG_Q_INIT = np.log(1)
-LOG_S_INIT = np.log(1)
-
+training_data = prepare_training_data(path, x_col, y_col)
 
 def load_data(path):
     """path ex: 'datasets/iaq_Q400_S100000.csv'"""
@@ -253,6 +229,18 @@ def parse_true_params(path):
 
 
 def main(path, plot_output_path=None, Q_true=None, S_true=None):
+
+
+
+
+
+
+
+
+
+
+
+
     # FIX: use Path.stem so the extension is never included in S
     if Q_true is not None:
         print(f"True Q={Q_true}")

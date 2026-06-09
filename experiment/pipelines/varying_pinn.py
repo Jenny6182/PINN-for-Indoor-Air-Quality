@@ -25,35 +25,6 @@ from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
 
-# ------ save random seed for reproducibility ------
-SEED = 42
-torch.manual_seed(SEED)
-np.random.seed(SEED)
-
-# ------known physical constants ------
-V     = 100.0   # zone volume   [m^3]
-C_out = 420.0   # outdoor CO2   [ppm]
-C0    = 500.0   # initial CO2   [ppm]
-
-# ------ piecewise schedule (must match data generation)------
-SEGMENT_DURATION = 0.5   # hours per segment — must match iaq_co2_piecewise.py
-
-# ------ hyper-parameters ------
-N_HIDDEN      = 3
-HIDDEN_DIM    = 64
-N_COLLOC      = 1500     # slightly more collocation points for piecewise signal
-LR_NET        = 3e-3
-LR_PARAMS     = 1e-2
-EPOCHS        = 10000
-WARMUP_EPOCHS = 500
-LAMBDA_PHYS   = 1.0
-RAMP_EPOCHS   = 2000
-
-# initial guesses, log scale, moderate values
-LOG_Q_INIT = np.log(200.0)   # start at Q=200 for all segments
-LOG_S_INIT = np.log(1e5)     # start at S=1e5 for all segments
-
-
 # ------ data loading ------
 def load_data(path):
     df = pd.read_csv(path)

@@ -30,7 +30,7 @@ from core.pinn.pinn_architecture import (
 from core.utils.preprocessing import compute_stats, normalize_with_stats, standardize_with_stats
 from core.pinn.collocation import create_uniform_collocation, to_torch
 from core.utils.logger import make_history_stage2, log_fn_stage2, print_header, print_row
-from experiments.configs.config import V, C_out
+from experiment.configs.config import V, C_out
 
 
 # ── Stage II hyperparameters ──────────────────────────────────────────────────

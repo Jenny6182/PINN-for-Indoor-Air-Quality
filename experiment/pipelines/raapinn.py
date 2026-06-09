@@ -65,24 +65,18 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 from core.utils.preprocessing import prepare_training_data, compute_stats
-from experiment.pipelines.stage1 import stage1_scan, find_candidate_intervals
+from core.scan.window_sweeping import stage1_scan, find_candidate_intervals
 from experiment.pipelines.stage2 import run_stage2
 from core.utils.plotting import plot_all_raa, plot_stage2_interval
 from core.pinn.collocation import to_torch
-from configs.config import V, C_out, SEED
+from experiment.configs.config import V, C_out, SEED
 from core.pinn.collocation import to_torch
 from core.utils.preprocessing import normalize_with_stats
-
+from datetime import datetime
 import torch
 import numpy as np
 
-# ----- SET SEED -----
-# pick a seed and always use it to make the initial weights, for reproducibility while tuning hyperparams
-torch.manual_seed(SEED) # set random numbers in torch
-np.random.seed(SEED) # in numpy
-
-
-# ── Stage I tuning ────────────────────────────────────────────────────────────
+# Hyperparams for stage I
 WINDOW_SIZE  = 20      # points per sliding window (~20 min at 1-min sampling)
 SIGMA        = 1.5     # Gaussian smoothing sigma before differentiation
 PROMINENCE   = None    # set to None to auto-set as 15% of max score
@@ -90,22 +84,22 @@ PROMINENCE   = None    # set to None to auto-set as 15% of max score
 DISTANCE     = 20      # min points between peaks (same as WINDOW_SIZE is safe)
 MARGIN_H     = 0.4     # candidate interval half-width around each peak [hours]
 
+# ----- SET SEED -----
+# pick a seed and always use it to make the initial weights, for reproducibility while tuning hyperparams
+torch.manual_seed(SEED) # set random numbers in torch
+np.random.seed(SEED) # in numpy
 
-def main(path="varying_datasets/iaq_co2_varying_Q.csv", prominence_factor=0.15):
+
+def main(path="./data/datasets/varying_pinn_datasets/iaq_co2_varying_Q.csv", prominence_factor=0.15):
 
     print(f"\n{'='*60}")
     print(f"RAA-PINN Pipeline")
     print(f"File: {path}")
     print(f"{'='*60}")
 
-    # ── load data ─────────────────────────────────────────────────────────────
+    # ----- data preprocessing ----- 
     # extra_cols loads the ground truth Q and S columns for evaluation
-    data = prepare_training_data(
-        path,
-        x_col="t_hours",
-        y_col="C_meas_ppm",
-        extra_cols=["Q_true", "S_true"],
-    )
+    data = prepare_training_data(path, x_col="t_hours", y_col="C_meas_ppm", extra_cols=["Q_true", "S_true"],)
 
     t_np      = data["t_np"]        # shape (N, 1)
     C_meas_np = data["c_np"]        # shape (N, 1)
@@ -115,7 +109,7 @@ def main(path="varying_datasets/iaq_co2_varying_Q.csv", prominence_factor=0.15):
     print(f"\nLoaded {len(t_np)} timepoints  "
           f"(t = {t_np.min():.2f}h to {t_np.max():.2f}h)")
 
-    # ── Stage I ───────────────────────────────────────────────────────────────
+    # ----- Stage I ----- 
     print(f"\n--- Stage I: Sliding Window Scan ---")
     print(f"  window_size={WINDOW_SIZE}, sigma={SIGMA}")
 
@@ -152,7 +146,7 @@ def main(path="varying_datasets/iaq_co2_varying_Q.csv", prominence_factor=0.15):
         print("\n  No changepoints detected. Try lowering PROMINENCE or DISTANCE.")
         return
 
-    # ── Stage II ──────────────────────────────────────────────────────────────
+    # ----- Stage II -----
     print(f"\n--- Stage II: Joint Refinement ---")
 
     stage2_results = []
@@ -168,7 +162,7 @@ def main(path="varying_datasets/iaq_co2_varying_Q.csv", prominence_factor=0.15):
         )
         stage2_results.append(result)
 
-    # ── print summary table ───────────────────────────────────────────────────
+    # ----- print summary table -----
     print(f"\n{'='*60}")
     print(f"Summary")
     print(f"{'='*60}")
@@ -193,7 +187,11 @@ def main(path="varying_datasets/iaq_co2_varying_Q.csv", prominence_factor=0.15):
               f"Q_true after={Q_true_np[idx_after]:.1f}  |  "
               f"estimated Q-={r['Q_minus']:.1f}  Q+={r['Q_plus']:.1f}")
 
-    # ── Stage II interval plots ───────────────────────────────────────────────
+
+
+    run_dir = (Path("results") / f"raapinn_factor={prominence_factor}_{datetime.now():%Y%m%d_%H%M%S}")   
+    run_dir.mkdir(parents=True, exist_ok=True)
+    # ----- Stage II interval plots -----
     # one subplot per detected changepoint showing the fit on that interval
     if len(stage2_results) > 0:
         n_intervals = len(stage2_results)
@@ -214,14 +212,14 @@ def main(path="varying_datasets/iaq_co2_varying_Q.csv", prominence_factor=0.15):
         fig.suptitle("Stage II — Interval Fits", fontsize=12)
         fig.tight_layout()
         stem     = Path(path).stem
-        fig_path = f"iaq_raa_stage2_intervals_{stem}.png"
+        fig_path = run_dir / f"iaq_raa_stage2_intervals_{stem}.png"
         fig.savefig(fig_path, dpi=130, bbox_inches="tight")
         print(f"\nSaved interval plots → {fig_path}")
         plt.close(fig)
 
-    # ── main RAA diagnostic plot ──────────────────────────────────────────────
+    # ----- main RAA diagnostic plot -----
     stem        = Path(path).stem
-    output_path = f"factor={prominence_factor}_raa_diagnostic.png"
+    output_path = run_dir / "raa_diagnostic.png"
 
     plot_all_raa(
         t_np=t_np,

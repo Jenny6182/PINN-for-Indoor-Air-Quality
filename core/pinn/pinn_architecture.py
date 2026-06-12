@@ -46,6 +46,7 @@ class FeedForwardNet(nn.Module):
         # make hidden layers
         for _ in range(n_hidden - 1):    # we are just counting n times, not using the variable _
             layers += [nn.Linear(hidden_dim, hidden_dim), nn.Tanh()]
+            # nn.Linear(in_feature_number, out_feature_number)
 
         # make output layer and add it in to layers list
         layers += [nn.Linear(hidden_dim, 1)]
@@ -63,10 +64,10 @@ class ConstantParams(nn.Module):
      def __init__(self, log_Q_init, log_S_init):
          super().__init__()
         # add log Q and log S as parameters (so they are non-negative and more similar in scale)
-         self.log_Q = nn.Parameter(torch.tensor(LOG_Q_INIT, dtype=torch.float32))
-         self.log_S = nn.Parameter(torch.tensor(LOG_S_INIT, dtype=torch.float32))
+         self.log_Q = nn.Parameter(torch.tensor(log_Q_init, dtype=torch.float32))
+         self.log_S = nn.Parameter(torch.tensor(log_S_init, dtype=torch.float32))
 
-     # Add Q and S as params
+     # Given un-normalized time array (t_phys), return Q and S for every time point
      def get_Q_S(self, t_phys):
          # t_phys shape (N, 1), return same Q and S for every point
          N = t_phys.shape[0]
@@ -78,22 +79,24 @@ class ConstantParams(nn.Module):
 class SegmentParams(nn.Module):
     """Segment parameter model that assumes Q or S are constant piecewise functions, and adding each segment constant
     to the network. This parameter model control all the Q or S segments, when the other is constant, 
-    it simply takes same number as the value for all segments."""
+    it simply takes same number as the value for all segments. All segments start initial guess from log_Q_init and log_S_init"""
     def __init__(self, n_segments, log_Q_init, log_S_init, segment_duration):
         super().__init__()
-        self.n_segments       = n_segments
+        self.n_segments = n_segments
         self.segment_duration = segment_duration
-        self.log_Q_segments   = nn.Parameter(
+        self.log_Q_segments = nn.Parameter(
+            # creates a tensor of shape (n_segments, ) so like an array, and fill it with log_Q_init value for each number
             torch.full((n_segments,), log_Q_init, dtype=torch.float32)
         )
         self.log_S_segments   = nn.Parameter(
+            # creates a tensor of shape (n_segments, ) so like an array, and fill it with log_S_init value for each number
             torch.full((n_segments,), log_S_init, dtype=torch.float32)
         )
 
     def get_Q_S(self, t_phys):
-        seg_idx = torch.clamp(
-            (t_phys / self.segment_duration).long(), 0, self.n_segments - 1
-        ).squeeze(1)
+        # calculate index from t_phys array and segment duration transferred to long, cap it at min 0 max self.n_segments - 1
+        # to prevent indexing error in list
+        seg_idx = torch.clamp((t_phys / self.segment_duration).long(), 0, self.n_segments - 1).squeeze(1) # removing a dimension
         Q = torch.exp(self.log_Q_segments)[seg_idx].unsqueeze(1)
         S = torch.exp(self.log_S_segments)[seg_idx].unsqueeze(1)
         return Q, S
@@ -101,7 +104,9 @@ class SegmentParams(nn.Module):
 class SigmoidChangepoint(nn.Module):
     """Sigmoid changepoint parameter model assumes Q and S are no longer step functions, instead, they are sigmoid functions
     that are differentiable. This is typically paired with RAA-PINN. This model adds 4 trainable scalars log parametrized,
-    which is used for each run of RAA-PINN stage 2. 
+    which is used for each run of RAA-PINN stage 2 in individual segments.
+
+    Model guesses a changepoint tau between [t_left, t_right], and the left side value and right side value of Q, S
     
     It looks at one small interval and try to optimize for these 4 parameters:
     Q_minus - the ventilation rate during [t_left, tau] (estimate of Q on the left side of changepoint)
@@ -109,26 +114,84 @@ class SigmoidChangepoint(nn.Module):
     similarly for S."""
     def __init__(self, t_left, t_right, log_Q_init, log_S_init, kappa=50.0):
         super().__init__()
-        self.t_left  = t_left
-        self.t_right = t_right
-        self.kappa   = kappa
+        self.t_left = t_left # left boundary of time interval
+        self.t_right = t_right # right boundary of time interval
+        self.kappa = kappa # how sharp the transition is between before and after value
 
         self.log_Q_minus = nn.Parameter(torch.tensor(log_Q_init, dtype=torch.float32))
         self.log_Q_plus  = nn.Parameter(torch.tensor(log_Q_init, dtype=torch.float32))
         self.log_S_minus = nn.Parameter(torch.tensor(log_S_init, dtype=torch.float32))
         self.log_S_plus  = nn.Parameter(torch.tensor(log_S_init, dtype=torch.float32))
-        # eta=0 maps to midpoint of interval — natural starting point
-        self.eta         = nn.Parameter(torch.tensor(0.0, dtype=torch.float32))
+        # eta = 0, starts at midpoint of the time interval, it's the percentage of where the changepoint is in the interval
+        self.eta = nn.Parameter(torch.tensor(0.0, dtype=torch.float32))
 
     @property
-    def tau(self):
-        # constrain changepoint to stay inside (t_left, t_right)
+    def tau(self): # method to get tau calculated and returned
+        # constrain changepoint to stay within interval [t_left, t_right]
         return self.t_left + (self.t_right - self.t_left) * torch.sigmoid(self.eta)
 
     def get_Q_S(self, t_phys):
-        gate  = torch.sigmoid(self.kappa * (t_phys - self.tau))
+        gate  = torch.sigmoid(self.kappa * (t_phys - self.tau)) 
+        # create sigmoid function that slides Q to left/right of tau
         Q = torch.exp(self.log_Q_minus) * (1 - gate) + torch.exp(self.log_Q_plus) * gate
         S = torch.exp(self.log_S_minus) * (1 - gate) + torch.exp(self.log_S_plus) * gate
+        return Q, S
+
+
+class MultiSigmoidChangepoint(nn.Module):
+    def __init__(self, t_min, t_max, tau_inits, log_Q_init, log_S_init, kappa=50.0):
+        """
+        Used for one single RAA-PINN that covers entire time domain in stage 2.
+        tau_inits : list or array of K initial changepoint times (from Stage I peaks)
+        """
+        super().__init__()
+        self.t_min = t_min
+        self.t_max = t_max
+        self.kappa = kappa # how sharp the transition is between segments
+        K = len(tau_inits) # number of changepoints
+
+        # initialise etas so sigmoid maps to each Stage I peak time
+        eta_inits = [ np.log((tau - t_min) / (t_max - tau + 1e-8)) for tau in tau_inits]
+        # log to invert sigmoid, tau-tim/tmax-tau+1e-8 for normalize
+
+        self.etas = nn.ParameterList([
+            nn.Parameter(torch.tensor(e, dtype=torch.float32))
+            for e in eta_inits
+        ]) # make each eta a tensor and add into list of parameter to optimize
+
+        # K+1 segment values
+        self.log_Q = nn.ParameterList([
+            nn.Parameter(torch.tensor(log_Q_init, dtype=torch.float32)) # initialize tensors with log_Q_init as initial value
+            for _ in range(K + 1) # add all the parameters of segment Q in to the parameter list
+        ])
+        self.log_S = nn.ParameterList([
+            nn.Parameter(torch.tensor(log_S_init, dtype=torch.float32)) # initialize tensors with log_S_init as initial value
+            for _ in range(K + 1) # add all the parameters of segment S in to the parameter list
+        ])
+
+    @property
+    def taus(self):
+        return torch.stack([
+            self.t_min + (self.t_max - self.t_min) * torch.sigmoid(eta) # create taus from etas
+            for eta in self.etas # do this for each eta and return the tensor that contains all the tau tensors
+        ])
+
+    def get_Q_S(self, t_phys):
+        taus = self.taus  # get changepoints, shape (K,)
+        Q_vals = torch.stack([torch.exp(lq) for lq in self.log_Q]) # (K+1,) ; converting to actual Q values from log
+        S_vals = torch.stack([torch.exp(ls) for ls in self.log_S]) # (K+1,)
+
+        # start at first segment, add jumps at each tau
+        gates = torch.sigmoid(
+            self.kappa * (t_phys - taus.unsqueeze(0))
+        )  # (N, K)
+
+        # from [a, b, c, d], get [b, c, d] and [a, b, c], then subtrct them to get differences
+        dQ = Q_vals[1:] - Q_vals[:-1] # (K,) # calculate differences between each Q step
+        dS = S_vals[1:] - S_vals[:-1] # (K,) # calculate differences between each S step
+
+        Q = Q_vals[0] + (gates * dQ).sum(dim=1, keepdim=True)
+        S = S_vals[0] + (gates * dS).sum(dim=1, keepdim=True)
         return Q, S
     
 

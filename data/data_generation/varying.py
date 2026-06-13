@@ -11,9 +11,6 @@ Analytical solution for each segment:
     C_ss = C_out + S/Q
     tau  = V/Q
 """
-
-
-# varying.py
 from dataclasses import dataclass, field
 from core_data_generator import *
 

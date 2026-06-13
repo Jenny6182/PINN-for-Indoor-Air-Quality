@@ -74,6 +74,7 @@ class ConstantParams(nn.Module):
          Q = torch.exp(self.log_Q).expand(N, 1)
          S = torch.exp(self.log_S).expand(N, 1)
          return Q, S
+        # return tensors that represent vectors, (N, 1), Q and S
 
 
 class SegmentParams(nn.Module):
@@ -100,6 +101,7 @@ class SegmentParams(nn.Module):
         Q = torch.exp(self.log_Q_segments)[seg_idx].unsqueeze(1)
         S = torch.exp(self.log_S_segments)[seg_idx].unsqueeze(1)
         return Q, S
+    # return tensors that represent vectors, (N, 1), Q and S
 
 class SigmoidChangepoint(nn.Module):
     """Sigmoid changepoint parameter model assumes Q and S are no longer step functions, instead, they are sigmoid functions
@@ -136,6 +138,7 @@ class SigmoidChangepoint(nn.Module):
         Q = torch.exp(self.log_Q_minus) * (1 - gate) + torch.exp(self.log_Q_plus) * gate
         S = torch.exp(self.log_S_minus) * (1 - gate) + torch.exp(self.log_S_plus) * gate
         return Q, S
+        # return tensors that represent vectors, (N, 1), Q and S
 
 
 class MultiSigmoidChangepoint(nn.Module):
@@ -190,9 +193,10 @@ class MultiSigmoidChangepoint(nn.Module):
         dQ = Q_vals[1:] - Q_vals[:-1] # (K,) # calculate differences between each Q step
         dS = S_vals[1:] - S_vals[:-1] # (K,) # calculate differences between each S step
 
-        Q = Q_vals[0] + (gates * dQ).sum(dim=1, keepdim=True)
-        S = S_vals[0] + (gates * dS).sum(dim=1, keepdim=True)
+        Q = Q_vals[0] + (gates*dQ).sum(dim=1, keepdim=True) # make the Q tensor by adding all the differences each time
+        S = S_vals[0] + (gates*dS).sum(dim=1, keepdim=True)
         return Q, S
+        # return tensors that represent vectors, (N, 1), Q and S
     
 
 def train_loop(model, opt_net, opt_params, sched_net, sched_params,

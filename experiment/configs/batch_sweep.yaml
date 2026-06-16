@@ -1,0 +1,14 @@
+# Sensitivity analysis: test RAA-PINN with different Q and S initializations
+model_type: raapinn
+config_path: experiment/configs/default_config.yaml
+output_dir: results/sensitivity_analysis
+
+# Run on these datasets
+data_paths:
+  - ./data/datasets/varying_pinn_datasets/iaq_co2_varying_Q.csv
+  - ./data/datasets/varying_pinn_datasets/iaq_co2_varying_S.csv
+
+# Parameter sweep: test combinations of log_Q_init and log_S_init
+parameters:
+  log_Q_init: [4.6, 5.0, 5.3]  # log(100), log(150), log(200)
+  log_S_init: [10.8, 11.5, 12.2]  # log(5e4), log(1e5), log(2e5)

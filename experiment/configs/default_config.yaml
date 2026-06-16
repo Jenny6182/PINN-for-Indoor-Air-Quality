@@ -1,0 +1,73 @@
+# Base configuration shared across all models
+common:
+  seed: 42
+  device: cuda  # cuda or cpu
+  verbose: true
+  
+# Simple PINN: constant Q and S
+simple:
+  name: "Simple PINN"
+  n_hidden: 3
+  hidden_dim: 64
+  epochs: 5000
+  lr_net: 3e-3
+  lr_params: 1e-2
+  lambda_phys: 1.0
+  warmup_epochs: 500
+  ramp_epochs: 500
+
+# Varying PINN: known segments
+varying:
+  name: "Varying PINN"
+  n_hidden: 3
+  hidden_dim: 64
+  epochs: 5000
+  lr_net: 3e-3
+  lr_params: 1e-2
+  lambda_phys: 1.0
+  warmup_epochs: 500
+  ramp_epochs: 500
+
+# RAA-PINN: one PINN per detected segment
+raapinn:
+  name: "RAA-PINN"
+  # Stage I: sliding window scan
+  window_size: 20
+  sigma: 1.5
+  prominence_factor: 0.15
+  distance: 20
+  margin_h: 0.4
+  
+  # Stage II per-segment training
+  n_hidden_s2: 2
+  hidden_dim_s2: 32
+  n_colloc_s2: 300
+  epochs_s2: 3000
+  lr_net_s2: 3e-3
+  lr_params_s2: 1e-2
+  lambda_phys_s2: 1.0
+  warmup_epochs_s2: 200
+  ramp_epochs_s2: 500
+  kappa: 50.0
+
+# One-PINN RAA: single PINN on full domain with all changepoints
+one_raapinn:
+  name: "One-PINN RAA"
+  # Stage I: sliding window scan
+  window_size: 20
+  sigma: 1.5
+  prominence_factor: 0.15
+  distance: 20
+  margin_h: 0.4
+  
+  # Stage II: one PINN for all changepoints
+  n_hidden_s2: 2
+  hidden_dim_s2: 32
+  n_colloc_s2: 300
+  epochs_s2: 3000
+  lr_net_s2: 3e-3
+  lr_params_s2: 1e-2
+  lambda_phys_s2: 1.0
+  warmup_epochs_s2: 200
+  ramp_epochs_s2: 500
+  kappa: 50.0

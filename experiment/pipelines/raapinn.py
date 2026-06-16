@@ -1,6 +1,6 @@
 """
-raa_pinn_main.py
-----------------
+RAA-PINN Pipeline
+-----------------
 RAA-PINN pipeline for unknown changepoint detection and parameter estimation.
 
 Implements a cheaper version of the RAA-PINNs paper (Bai et al. 2026) that
@@ -21,76 +21,239 @@ Stage II — for each detected peak, train a small PINN on the short candidate
 
 Output   — piecewise Q(t) and S(t) step functions, one value per detected
            segment, compared against true values from the CSV.
-
-Usage
------
-Run directly:
-    python raa_pinn_main.py
-
-Or call main() with a different CSV path:
-    from raa_pinn_main import main
-    main("varying_datasets/iaq_co2_varying_S.csv")
-
-Key tuning parameters (top of this file):
-    WINDOW_SIZE   — width of sliding window in number of timepoints.
-                    Should be ~2x the fastest time constant in your data.
-                    If peaks are too noisy, increase. If peaks are too wide, decrease.
-
-    SIGMA         — Gaussian smoothing applied before differentiation.
-                    Increase if derivative is too noisy. Decrease if peaks are blurred.
-
-    PROMINENCE    — minimum prominence for peak detection.
-                    Start at 10-20% of max score, increase to remove false positives,
-                    decrease if real changepoints are missed.
-
-    DISTANCE      — minimum timepoints between two detected peaks.
-                    Set to roughly WINDOW_SIZE to avoid double-detecting one changepoint.
-
-    MARGIN_H      — half-width of candidate interval passed to Stage II [hours].
-                    True changepoint must lie within peak_time +/- MARGIN_H.
-                    Use ~1-2x SEGMENT_DURATION.
 """
 
-import os
-
-# Get the current working directory
-current_dir = os.getcwd()
-
-print(current_dir)
-
 import sys
-
 import numpy as np
+import torch
 import matplotlib.pyplot as plt
 from pathlib import Path
-
-from core.utils.preprocessing import prepare_training_data, compute_stats
-from core.scan.window_sweeping import *
-from experiment.pipelines.stage2 import run_stage2
-from core.utils.plotting import plot_all_raa, plot_stage2_interval
-from core.pinn.collocation import to_torch
-from experiment.configs.config import V, C_out, SEED
-from core.pinn.collocation import to_torch
-from core.utils.preprocessing import normalize_with_stats
 from datetime import datetime
-import torch
-import numpy as np
 
-# Hyperparams for stage I
-WINDOW_SIZE  = 20      # points per sliding window (~20 min at 1-min sampling)
-SIGMA        = 1.5     # Gaussian smoothing sigma before differentiation
-PROMINENCE   = None    # set to None to auto-set as 15% of max score
-# prominence_factor = 0.05 #default 0.15
-DISTANCE     = 20      # min points between peaks (same as WINDOW_SIZE is safe)
-MARGIN_H     = 0.4     # candidate interval half-width around each peak [hours]
+from core.utils.preprocessing import prepare_training_data, normalize_with_stats
+from core.scan.window_sweeping import (
+    stage1_scan, find_candidate_intervals, find_top_k_intervals
+)
+from experiment.pipelines.stage2 import run_stage2
+from experiment.pipelines.base import BasePipeline
+from core.utils.plotting import plot_all_raa, plot_stage2_interval
+from experiment.configs.config import V, C_out, SEED
 
 # ----- SET SEED -----
-# pick a seed and always use it to make the initial weights, for reproducibility while tuning hyperparams
-torch.manual_seed(SEED) # set random numbers in torch
-np.random.seed(SEED) # in numpy
+torch.manual_seed(SEED)
+np.random.seed(SEED)
 
 
-def main(path="./data/datasets/varying_pinn_datasets/iaq_co2_varying_Q.csv", 
+class RAAPINNPipeline(BasePipeline):
+    """
+    RAA-PINN: Rapid Anomaly detection with Adaptive PINNs.
+    Detects unknown changepoints via sliding window scan, then trains one PINN per interval.
+    """
+
+    @property
+    def model_type(self) -> str:
+        return "raapinn"
+
+    @classmethod
+    def get_default_config(cls) -> dict:
+        """Default hyperparameters for RAA-PINN."""
+        return {
+            # Stage I: Sliding window scan
+            "window_size": 20,           # points per sliding window
+            "sigma": 1.5,                # Gaussian smoothing sigma
+            "prominence_factor": 0.15,   # prominence as % of max score
+            "distance": 20,              # min points between peaks
+            "margin_h": 0.4,             # candidate interval half-width [hours]
+            
+            # Stage II: Per-interval PINN training
+            "log_Q_init": np.log(200.0),
+            "log_S_init": np.log(1e5),
+            "k": None,  # if set, use top-k peaks instead of prominence-based detection
+        }
+
+    def run(self, data_path: str, **kwargs) -> dict:
+        """
+        Execute RAA-PINN pipeline.
+
+        Parameters
+        ----------
+        data_path : str
+            Path to CSV file with columns: t_hours, C_meas_ppm, Q_true, S_true
+        **kwargs : dict
+            Overrides for default config (log_Q_init, log_S_init, window_size, etc.)
+
+        Returns
+        -------
+        dict
+            Results with keys: stage2_results (list of dicts), peak_indices, intervals
+        """
+        # Merge config with kwargs
+        config = {**self.config.get("raapinn", {}), **kwargs}
+
+        stem = Path(data_path).stem
+        print(f"\nRAA-PINN Pipeline")
+        print(f"File: {data_path}")
+        print(f"Run directory: {self.run_dir}")
+        print(f"{'='*60}")
+
+        # ----- Data preprocessing -----
+        data = prepare_training_data(
+            data_path,
+            x_col="t_hours",
+            y_col="C_meas_ppm",
+            extra_cols=["Q_true", "S_true"],
+        )
+
+        t_np = data["t_np"]  # shape (N, 1)
+        C_meas_np = data["c_np"]  # shape (N, 1)
+        Q_true_np = data["Q_true"]  # shape (N,)
+        S_true_np = data["S_true"]  # shape (N,)
+
+        print(f"\nLoaded {len(t_np)} timepoints "
+              f"(t = {t_np.min():.2f}h to {t_np.max():.2f}h)")
+
+        # ----- Stage I: Sliding Window Scan -----
+        print(f"\n--- Stage I: Sliding Window Scan ---")
+        print(f"  window_size={config['window_size']}, sigma={config['sigma']}")
+
+        scores = stage1_scan(
+            t=t_np,
+            C_meas=C_meas_np,
+            V=V,
+            C_out=C_out,
+            window_size=config["window_size"],
+            sigma=config["sigma"],
+        )
+
+        if config["k"] is not None:
+            print(f"  Using top-{config['k']} peaks (known changepoint count)")
+            peak_indices, intervals = find_top_k_intervals(
+                t=t_np,
+                scores=scores,
+                k=config["k"],
+                margin_h=config["margin_h"],
+            )
+        else:
+            prominence = config["prominence_factor"] * np.nanmax(scores)
+            print(f"  Auto prominence = {prominence:.3e} "
+                  f"({config['prominence_factor']*100:.0f}% of max score)")
+            peak_indices, intervals = find_candidate_intervals(
+                t=t_np,
+                scores=scores,
+                prominence=prominence,
+                distance=config["distance"],
+                margin_h=config["margin_h"],
+            )
+
+        print(f"\n  Detected {len(peak_indices)} candidate changepoints:")
+        t_flat = t_np.flatten()
+        for i, (idx, (tl, tr)) in enumerate(zip(peak_indices, intervals)):
+            print(f"    [{i+1}] peak at t={t_flat[idx]:.3f}h "
+                  f"-> interval [{tl:.3f}h, {tr:.3f}h]")
+
+        if len(peak_indices) == 0:
+            print("\n  No changepoints detected. Try lowering prominence or distance.")
+            return {
+                "stage2_results": [],
+                "peak_indices": peak_indices,
+                "intervals": intervals,
+            }
+
+        # ----- Stage II: Joint Refinement -----
+        print(f"\n--- Stage II: Joint Refinement (one PINN per interval) ---")
+
+        stage2_results = []
+        for i, (t_left, t_right) in enumerate(intervals):
+            print(f"\n  Changepoint {i+1}/{len(intervals)}")
+            result = run_stage2(
+                t_np=t_np,
+                C_meas_np=C_meas_np,
+                t_left=t_left,
+                t_right=t_right,
+                log_Q_init=config["log_Q_init"],
+                log_S_init=config["log_S_init"],
+                print_every=500,
+                verbose=True,
+            )
+            stage2_results.append(result)
+
+        # ----- Print summary table -----
+        print(f"\n{'='*60}")
+        print(f"Summary")
+        print(f"{'='*60}")
+        print(f"  {'#':>3}  {'tau_est':>8}  {'Q_minus':>8}  {'Q_plus':>8}  "
+              f"{'S_minus':>10}  {'S_plus':>10}")
+        print(f"  {'-'*60}")
+        for i, r in enumerate(stage2_results):
+            print(f"  {i+1:>3}  {r['tau']:>8.3f}  {r['Q_minus']:>8.1f}  "
+                  f"{r['Q_plus']:>8.1f}  {r['S_minus']:>10.2e}  {r['S_plus']:>10.2e}")
+
+        # Compare against true values at each detected changepoint
+        print(f"\n  True Q at each detected changepoint:")
+        for i, r in enumerate(stage2_results):
+            tau = r["tau"]
+            idx_before = np.clip(np.searchsorted(t_flat, tau) - 1, 0, len(t_flat) - 1)
+            idx_after = np.clip(np.searchsorted(t_flat, tau), 0, len(t_flat) - 1)
+            print(f"    [{i+1}] tau={tau:.3f}h "
+                  f"Q_true before={Q_true_np[idx_before]:.1f} "
+                  f"Q_true after={Q_true_np[idx_after]:.1f} | "
+                  f"estimated Q-={r['Q_minus']:.1f} Q+={r['Q_plus']:.1f}")
+
+        # ----- Save Stage II interval plots -----
+        if len(stage2_results) > 0:
+            n_intervals = len(stage2_results)
+            fig, axes = plt.subplots(
+                1, n_intervals,
+                figsize=(5 * n_intervals, 4),
+                squeeze=False
+            )
+            for i, r in enumerate(stage2_results):
+                plot_stage2_interval(
+                    ax=axes[0][i],
+                    model=r["model"],
+                    t_interval_np=r["t_interval"],
+                    c_interval_np=r["C_interval"],
+                    tau_est=r["tau"],
+                    stats=r["stats"],
+                    norm_t=normalize_with_stats,
+                    interval_label=f"changepoint {i+1}",
+                )
+            fig.suptitle("Stage II -> Interval Fits", fontsize=12)
+            fig.tight_layout()
+            fig_path = self.run_dir / f"iaq_raa_stage2_intervals_{stem}.png"
+            fig.savefig(fig_path, dpi=130, bbox_inches="tight")
+            print(f"\nSaved interval plots -> {fig_path}")
+            plt.close(fig)
+
+        # ----- Save main RAA diagnostic plot -----
+        output_path = self.run_dir / "raa_diagnostic.png"
+        plot_all_raa(
+            t_np=t_np,
+            c_np=C_meas_np,
+            scores=scores,
+            peak_indices=peak_indices,
+            stage2_results=stage2_results,
+            Q_true_np=Q_true_np,
+            S_true_np=S_true_np,
+            output_path=output_path,
+        )
+
+        print(f"\n{'='*60}")
+        print(f"Pipeline complete")
+        print(f"{'='*60}\n")
+
+        return {
+            "stage2_results": stage2_results,
+            "peak_indices": peak_indices,
+            "intervals": intervals,
+            "t_np": t_np,
+            "C_meas_np": C_meas_np,
+            "scores": scores,
+        }
+
+
+# Legacy interface for backward compatibility
+def main(path="./data/datasets/varying_pinn_datasets/iaq_co2_varying_Q.csv",
          log_Q_init=np.log(200.0),
          log_S_init=np.log(1e5),
          k=None, prominence_factor=0.15,

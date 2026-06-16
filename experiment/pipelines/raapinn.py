@@ -65,7 +65,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 from core.utils.preprocessing import prepare_training_data, compute_stats
-from core.scan.window_sweeping import stage1_scan, find_candidate_intervals
+from core.scan.window_sweeping import *
 from experiment.pipelines.stage2 import run_stage2
 from core.utils.plotting import plot_all_raa, plot_stage2_interval
 from core.pinn.collocation import to_torch
@@ -90,9 +90,21 @@ torch.manual_seed(SEED) # set random numbers in torch
 np.random.seed(SEED) # in numpy
 
 
-def main(path="./data/datasets/varying_pinn_datasets/iaq_co2_varying_Q.csv", prominence_factor=0.15):
+def main(path="./data/datasets/varying_pinn_datasets/iaq_co2_varying_Q.csv", 
+         log_Q_init=np.log(200.0),
+         log_S_init=np.log(1e5),
+         k=None, prominence_factor=0.15,
+         run_dir=None):
 
-    print(f"\n{'='*60}")
+    stem = Path(path).stem  # extract filename without extension early
+
+    # If run_dir not provided, create one
+    if run_dir is None:
+        run_dir = Path(f"results/sensitivity_analysis/{stem}_Q{log_Q_init}_S{log_S_init}")
+    else:
+        run_dir = Path(run_dir)
+    
+    run_dir.mkdir(parents=True, exist_ok=True)
     print(f"RAA-PINN Pipeline")
     print(f"File: {path}")
     print(f"{'='*60}")
@@ -122,25 +134,34 @@ def main(path="./data/datasets/varying_pinn_datasets/iaq_co2_varying_Q.csv", pro
         sigma=SIGMA,
     )
 
-    # auto-set prominence if not specified
-    prominence = PROMINENCE
-    if prominence is None:
-        prominence = prominence_factor * np.nanmax(scores)
-        print(f"  Auto prominence = {prominence:.3e}  (15% of max score)")
-
-    peak_indices, intervals = find_candidate_intervals(
-        t=t_np,
-        scores=scores,
-        prominence=prominence,
-        distance=DISTANCE,
-        margin_h=MARGIN_H,
-    )
+    if k is not None:
+        print("k: ", k)
+        peak_indices, intervals = find_top_k_intervals(
+            t=t_np,
+            scores=scores,
+            k=k,
+            margin_h=MARGIN_H,
+        )
+        print(f"  Using top-{k} peaks (known changepoint count)")
+    else:
+        prominence = PROMINENCE
+        if prominence is None:
+            prominence = prominence_factor * np.nanmax(scores)
+            print(f"  Auto prominence = {prominence:.3e} (15% of max score)")
+            # auto-set prominence if not specified
+        peak_indices, intervals = find_candidate_intervals(
+            t=t_np,
+            scores=scores,
+            prominence=prominence,
+            distance=DISTANCE,
+            margin_h=MARGIN_H,
+        )
 
     print(f"\n  Detected {len(peak_indices)} candidate changepoints:")
     t_flat = t_np.flatten()
     for i, (idx, (tl, tr)) in enumerate(zip(peak_indices, intervals)):
         print(f"    [{i+1}] peak at t={t_flat[idx]:.3f}h  "
-              f"→ interval [{tl:.3f}h, {tr:.3f}h]")
+              f"-> interval [{tl:.3f}h, {tr:.3f}h]")
 
     if len(peak_indices) == 0:
         print("\n  No changepoints detected. Try lowering PROMINENCE or DISTANCE.")
@@ -157,6 +178,8 @@ def main(path="./data/datasets/varying_pinn_datasets/iaq_co2_varying_Q.csv", pro
             C_meas_np=C_meas_np,
             t_left=t_left,
             t_right=t_right,
+            log_Q_init=log_Q_init,
+            log_S_init=log_S_init,
             print_every=500,
             verbose=True,
         )
@@ -187,10 +210,6 @@ def main(path="./data/datasets/varying_pinn_datasets/iaq_co2_varying_Q.csv", pro
               f"Q_true after={Q_true_np[idx_after]:.1f}  |  "
               f"estimated Q-={r['Q_minus']:.1f}  Q+={r['Q_plus']:.1f}")
 
-
-
-    run_dir = (Path("results") / f"raapinn_factor={prominence_factor}_{datetime.now():%Y%m%d_%H%M%S}")   
-    run_dir.mkdir(parents=True, exist_ok=True)
     # ----- Stage II interval plots -----
     # one subplot per detected changepoint showing the fit on that interval
     if len(stage2_results) > 0:
@@ -211,14 +230,12 @@ def main(path="./data/datasets/varying_pinn_datasets/iaq_co2_varying_Q.csv", pro
             )
         fig.suptitle("Stage II — Interval Fits", fontsize=12)
         fig.tight_layout()
-        stem     = Path(path).stem
         fig_path = run_dir / f"iaq_raa_stage2_intervals_{stem}.png"
         fig.savefig(fig_path, dpi=130, bbox_inches="tight")
-        print(f"\nSaved interval plots → {fig_path}")
+        print(f"\nSaved interval plots -> {fig_path}")
         plt.close(fig)
 
     # ----- main RAA diagnostic plot -----
-    stem        = Path(path).stem
     output_path = run_dir / "raa_diagnostic.png"
 
     plot_all_raa(
@@ -238,9 +255,20 @@ def main(path="./data/datasets/varying_pinn_datasets/iaq_co2_varying_Q.csv", pro
 if __name__ == "__main__":
     # run on varying Q dataset by default
     # change the path here to run on varying S
-    dataset_path = sys.argv[1]
-    print(dataset_path)
-    prominence_factor = float(sys.argv[2])
-    print(prominence_factor)
-    results = main(dataset_path, prominence_factor)
-    # results = main("./general_pinn/iaq_co2_varying_Q.csv", )
+    if len(sys.argv) < 5:
+        results = main()
+    else:
+        dataset_path = sys.argv[1]
+        print(dataset_path)
+        log_Q_init = float(sys.argv[2])
+        print(log_Q_init)
+        log_S_init = float(sys.argv[3])
+        print(log_S_init)
+        k = int(sys.argv[4]) if sys.argv[4] != "None" else None
+        print(k)
+        prominence_factor = float(sys.argv[4])
+        print(prominence_factor)
+        
+        results = main(dataset_path, log_Q_init, log_S_init, k, prominence_factor)
+
+    print(results[0].keys())

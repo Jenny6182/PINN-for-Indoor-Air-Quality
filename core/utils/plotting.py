@@ -92,7 +92,7 @@ def plot_pde_residual(ax, model, t_col_np, physics_residual_fn, stats, norm_t,
 
     ax.set_xlabel("Time [h]")
     ax.set_ylabel("PDE Residual (normalised)")
-    ax.set_title("Physics Residual  [should → 0]")
+    ax.set_title("Physics Residual  [should -> 0]")
     ax.grid(alpha=0.3)
 
 
@@ -427,5 +427,5 @@ def _save(fig, output_path):
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=130, bbox_inches="tight")
-    print(f"Saved → {out}")
+    print(f"Saved -> {out}")
     plt.close(fig)

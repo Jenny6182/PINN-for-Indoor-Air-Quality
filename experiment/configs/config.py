@@ -8,8 +8,6 @@ C0 = 500.0   # initial CO2, ppm  (first data point)
 # pick a seed and always use it to make the initial weights, for reproducibility while tuning hyperparams
 SEED = 42
 
-
-
 # ------ hyper-parameters ------
 N_HIDDEN = 3        # number of hidden layers
 HIDDEN_DIM = 64       # number of neurons per layer
@@ -28,3 +26,22 @@ RAMP_EPOCHS = 2000     # ramp lambda_phys over this many epochs after warmup
 # log so it's positive and similar scaled
 LOG_Q_INIT = np.log(1) 
 LOG_S_INIT = np.log(1)
+
+# Hyperparams for stage I
+WINDOW_SIZE  = 20      # points per sliding window (~20 min at 1-min sampling)
+SIGMA        = 1.5     # Gaussian smoothing sigma before differentiation
+PROMINENCE   = None    # set to None to auto-set as 15% of max score
+# prominence_factor = 0.05 #default 0.15
+DISTANCE     = 20      # min points between peaks (same as WINDOW_SIZE is safe)
+MARGIN_H     = 0.4     # candidate interval half-width around each peak [hours]
+
+N_HIDDEN_S2      = 2
+HIDDEN_DIM_S2    = 32
+N_COLLOC_S2      = 300
+LR_NET_S2        = 3e-3
+LR_PARAMS_S2     = 1e-2
+EPOCHS_S2        = 3000
+WARMUP_EPOCHS_S2 = 200
+LAMBDA_PHYS_S2   = 1.0
+RAMP_EPOCHS_S2   = 500
+KAPPA            = 50.0    # sigmoid sharpness — higher = sharper step approximation

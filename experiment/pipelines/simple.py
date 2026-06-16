@@ -55,48 +55,6 @@ from core.utils.plotting import plot_all_simple
 
 training_data = prepare_training_data(path, x_col, y_col)
 
-def load_data(path):
-    """path ex: 'datasets/iaq_Q400_S100000.csv'"""
-    df = pd.read_csv(path)
-
-    t_np = df["t_hours"].values.reshape(-1, 1).astype(np.float32)
-    c_np = df["C_meas_ppm"].values.reshape(-1, 1).astype(np.float32)
-
-    t_train_np, t_test_np, c_train_np, c_test_np = train_test_split(
-        t_np, c_np, test_size=0.2, random_state=42
-    )
-
-    return t_np, c_np, t_train_np, c_train_np, t_test_np, c_test_np
-
-
-def norm_t(t, t_min, t_max):
-    return (t - t_min) / (t_max - t_min + 1e-8)
-
-def norm_c(c, c_std, c_mean):
-    return (c - c_mean) / c_std
-
-def denorm_c(c_hat, c_std, c_mean):
-    return c_hat * c_std + c_mean
-
-
-def normalize_data(t_train_np, c_train_np, t_min, t_max, c_std, c_mean):
-    T_train_norm = torch.tensor(norm_t(t_train_np, t_min, t_max), dtype=torch.float32)
-    C_train_norm = torch.tensor(norm_c(c_train_np, c_std, c_mean), dtype=torch.float32)
-    return T_train_norm, C_train_norm
-
-def create_collocation_points(t_min, t_max, N_COLLOC=N_COLLOC):
-    t_col_np = np.linspace(t_min, t_max, N_COLLOC).reshape(-1, 1).astype(np.float32)
-    T_col = torch.tensor(norm_t(t_col_np, t_min, t_max), dtype=torch.float32, requires_grad=True)
-    return t_col_np, T_col
-
-def find_statistical_elements(t_train_np, c_train_np):
-    t_min  = t_train_np.min()
-    t_max  = t_train_np.max()
-    c_std  = c_train_np.std()
-    c_mean = c_train_np.mean()
-    return t_min, t_max, c_std, c_mean
-
-
 # ----- PINN model -----
 class PINN(nn.Module):
     def __init__(self, hidden_dim=64, n_hidden=3):
@@ -230,17 +188,6 @@ def parse_true_params(path):
 
 def main(path, plot_output_path=None, Q_true=None, S_true=None):
 
-
-
-
-
-
-
-
-
-
-
-
     # FIX: use Path.stem so the extension is never included in S
     if Q_true is not None:
         print(f"True Q={Q_true}")
@@ -252,8 +199,42 @@ def main(path, plot_output_path=None, Q_true=None, S_true=None):
     # print(f"File: {path}  |  True Q={Q_true}, True S_vol={S_vol_true}, True S={S_true:.2e}")
     print(f"File: {path} ")
 
-    # load data
-    t_np, c_np, t_train_np, c_train_np, t_test_np, c_test_np = load_data(path)
+    training_data = prepare_training_data(path, "t_hours", "C_meas_ppm")
+
+    create_uniform_collocation()
+
+import numpy as np
+import torch
+from core.utils.preprocessing import normalize
+
+def create_uniform_collocation(n_colloc, x):
+    return np.linspace(x.min(), x.max(), n_colloc).reshape(-1, 1).astype(np.float32)
+
+
+def to_torch(x, requires_grad=False):
+    return torch.tensor(x, dtype=torch.float32, requires_grad=requires_grad)
+
+
+def create_piecewise_collocation(n_colloc, x, segment_duration, boundary_offset):
+    """
+    Uniform grid plus extra points around each segment boundary,
+    so the physics loss will be forced to evaluate and capture the behaviour at each Q/S jump better
+    """
+    x_uniform = create_uniform_collocation(n_colloc, x).flatten()
+    
+    # create values starting at segment_duration, increasing by segment_duration, stopping before x.max()
+    boundaries = np.arange(segment_duration, x.max(), segment_duration)
+
+    # adding points near boundary (before and after) so residual will be e valuated around the discontinuity
+    # joining them into one array
+    x_near = np.concatenate([boundaries - boundary_offset, boundaries + boundary_offset])
+
+    # combines uniform collocation with boundary collocation points
+    # with duplicates removed and sorted in increasing order
+    x_col = np.sort(np.unique(np.concatenate([x_uniform, x_near])))
+
+    return x_col.reshape(-1, 1).astype(np.float32)
+
 
     t_min, t_max, c_std, c_mean = find_statistical_elements(t_train_np, c_train_np)
 

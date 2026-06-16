@@ -152,6 +152,7 @@ class MultiSigmoidChangepoint(nn.Module):
         self.t_max = t_max
         self.kappa = kappa # how sharp the transition is between segments
         K = len(tau_inits) # number of changepoints
+        self.tau_inits = tau_inits
 
         # initialise etas so sigmoid maps to each Stage I peak time
         eta_inits = [ np.log((tau - t_min) / (t_max - tau + 1e-8)) for tau in tau_inits]

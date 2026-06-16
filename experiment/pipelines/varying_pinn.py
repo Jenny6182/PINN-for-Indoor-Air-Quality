@@ -125,7 +125,7 @@ def physics_residual(model, T_col, t_min, t_max, c_mean, c_std, n_segments):
         create_graph=True,
     )[0]
 
-    # convert normalised time → physical hours → segment index
+    # convert normalised time -> physical hours -> segment index
     t_phys  = T_col.detach() * (t_max - t_min) + t_min          # (N, 1)
     # seg_idx = torch.clamp(
     #     (t_phys / SEGMENT_DURATION).long(), 0, n_segments - 1
@@ -341,7 +341,7 @@ def plot_diagnostics(model, history, t_np, c_np, t_train_np, c_train_np,
                  fontsize=13, y=1.01)
     fig.tight_layout()
     fig.savefig(output_path, dpi=130, bbox_inches="tight")
-    print(f"Saved figure → {output_path}")
+    print(f"Saved figure -> {output_path}")
     plt.show()
 
 

@@ -57,6 +57,20 @@ def make_history_stage2():
     }
 
 
+def make_history_one_pinn():
+    """For one single RAA-PINN covering entire domain — tracks all taus and Q/S per epoch."""
+    return {
+        "loss_total": [],
+        "loss_data":  [],
+        "loss_phys":  [],
+        "taus":       [],      # list of arrays, one per epoch
+        "Q_minus":    [],      # list of arrays (before each changepoint)
+        "Q_plus":     [],      # list of arrays (after each changepoint)
+        "S_minus":    [],      # list of arrays (before each changepoint)
+        "S_plus":     [],      # list of arrays (after each changepoint)
+    }
+
+
 # ── log_fn callbacks ──────────────────────────────────────────────────────────
 
 def log_fn_simple(model, history, epoch):
@@ -100,6 +114,35 @@ def log_fn_stage2(model, history, epoch):
         history["S_minus"].append(torch.exp(pm.log_S_minus).item())
         history["S_plus"].append(torch.exp(pm.log_S_plus).item())
 
+def log_fn_one_pinn(model, history, epoch):
+    """
+    Appends all taus and Q/S values (before and after each changepoint) to history each epoch.
+    Expects model.param_model to be MultiSigmoidChangepoint.
+    For K changepoints:
+      - taus: array of K changepoint times
+      - Q_minus/Q_plus: arrays of K values (Q before and after each changepoint)
+      - S_minus/S_plus: arrays of K values (S before and after each changepoint)
+    """
+    with torch.no_grad():
+        pm = model.param_model
+        # Get all taus (K changepoints)
+        taus = pm.taus.detach().cpu().numpy()
+        # Get all Q and S segment values (K+1 segments)
+        Q_seg = torch.exp(torch.stack(list(pm.log_Q))).detach().cpu().numpy()
+        S_seg = torch.exp(torch.stack(list(pm.log_S))).detach().cpu().numpy()
+        
+        # For each changepoint i: Q_minus=Q[i], Q_plus=Q[i+1]
+        Q_minus = Q_seg[:-1]  # segments 0 to K-1
+        Q_plus = Q_seg[1:]    # segments 1 to K
+        S_minus = S_seg[:-1]
+        S_plus = S_seg[1:]
+        
+        history["taus"].append(taus)
+        history["Q_minus"].append(Q_minus)
+        history["Q_plus"].append(Q_plus)
+        history["S_minus"].append(S_minus)
+        history["S_plus"].append(S_plus)
+
 
 # ── terminal printing ─────────────────────────────────────────────────────────
 
@@ -114,6 +157,9 @@ def print_header(pinn_type="simple"):
     elif pinn_type == "stage2":
         print(f"{'Epoch':>6}  {'Loss':>10}  {'Data':>10}  {'Phys':>10}  "
               f"{'tau':>8}  {'Q-':>8}  {'Q+':>8}  {'S-':>10}  {'S+':>10}")
+    elif pinn_type == "one_pinn":
+        print(f"{'Epoch':>6}  {'Loss':>10}  {'Data':>10}  {'Phys':>10}  "
+              f"{'tau(1st)':>15}  {'Q-':>8}  {'Q+':>8}  {'S-':>10}  {'S+':>10}")
     print("-" * 75)
 
 
@@ -139,3 +185,16 @@ def print_row(epoch, history, pinn_type="simple"):
         print(f"{base}  {history['tau'][-1]:>8.3f}  "
               f"{history['Q_minus'][-1]:>8.1f}  {history['Q_plus'][-1]:>8.1f}  "
               f"{history['S_minus'][-1]:>10.2e}  {history['S_plus'][-1]:>10.2e}")
+
+    elif pinn_type == "one_pinn":
+        # For one_pinn with multiple changepoints, display first changepoint and indicate count
+        taus = history["taus"][-1]  # array of K changepoints
+        Q_minus = history["Q_minus"][-1]
+        Q_plus = history["Q_plus"][-1]
+        S_minus = history["S_minus"][-1]
+        S_plus = history["S_plus"][-1]
+        n_changepoints = len(taus)
+        # Display first changepoint
+        print(f"{base}  {taus[0]:>8.3f} ({n_changepoints}cp)  "
+              f"{Q_minus[0]:>8.1f}  {Q_plus[0]:>8.1f}  "
+              f"{S_minus[0]:>10.2e}  {S_plus[0]:>10.2e}")

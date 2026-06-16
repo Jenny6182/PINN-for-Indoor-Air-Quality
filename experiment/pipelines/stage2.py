@@ -46,54 +46,17 @@ WARMUP_EPOCHS_S2 = 200
 LAMBDA_PHYS_S2   = 1.0
 RAMP_EPOCHS_S2   = 500
 KAPPA            = 50.0    # sigmoid sharpness — higher = sharper step approximation
-LOG_Q_INIT_S2    = np.log(200.0)
-LOG_S_INIT_S2    = np.log(1e5)
 
-
-def run_stage2(t_np, C_meas_np, t_left, t_right,
+def run_stage2(t_np, C_meas_np, t_left, t_right, log_Q_init, log_S_init,
                print_every=500, verbose=True):
-    """
-    Run Stage II on one candidate interval.
-
-    Parameters
-    ----------
-    t_np       : np.ndarray shape (N,1) — full time array (used to extract interval)
-    C_meas_np  : np.ndarray shape (N,1) — full noisy CO2 array
-    t_left     : float — left boundary of candidate interval [hours]
-    t_right    : float — right boundary of candidate interval [hours]
-    print_every: int   — how often to print progress
-    verbose    : bool  — whether to print progress at all
-
-    Returns
-    -------
-    dict with keys:
-        tau     — estimated changepoint time [hours]
-        Q_minus — estimated Q before the jump [m^3/h]
-        Q_plus  — estimated Q after the jump  [m^3/h]
-        S_minus — estimated S before the jump [ppm*m^3/h]
-        S_plus  — estimated S after the jump  [ppm*m^3/h]
-        history — full training history dict for diagnostics
-        model   — trained PINN (useful for plotting the interval fit)
-
-    How it works
-    ------------
-    1. Extract the data subset that falls within [t_left, t_right]
-    2. Compute normalisation stats from that subset — do NOT use full dataset stats
-       because the interval is short and may have a different mean/std
-    3. Build a small PINN with SigmoidChangepoint as the param model
-       eta=0 initialises tau at the midpoint of the interval
-    4. Train with the same warm-up + ramp + auto_scale logic as the full PINN
-       but with fewer epochs since the interval is short
-    5. After training, read off tau, Q_minus, Q_plus, S_minus, S_plus
-    """
-
-    # ── extract interval subset ───────────────────────────────────────────────
+    
+    # extract interval subset 
     t_flat = t_np.flatten()
     C_flat = C_meas_np.flatten()
 
-    mask        = (t_flat >= t_left) & (t_flat <= t_right)
-    t_interval  = t_flat[mask].reshape(-1, 1).astype(np.float32)
-    C_interval  = C_flat[mask].reshape(-1, 1).astype(np.float32)
+    mask = (t_flat >= t_left) & (t_flat <= t_right)
+    t_interval = t_flat[mask].reshape(-1, 1).astype(np.float32)
+    C_interval = C_flat[mask].reshape(-1, 1).astype(np.float32)
 
     if len(t_interval) < 10:
         raise ValueError(
@@ -101,8 +64,7 @@ def run_stage2(t_np, C_meas_np, t_left, t_right,
             f"points — too few for Stage II. Widen the candidate interval."
         )
 
-    # ── normalise using interval stats only ───────────────────────────────────
-    # important: use only this interval's data to compute stats
+    # data preprocess, using only this interval's data to compute stats
     # the interval may have a very different CO2 range than the full dataset
     stats = compute_stats(t_interval, C_interval)
 
@@ -116,34 +78,34 @@ def run_stage2(t_np, C_meas_np, t_left, t_right,
     T_train = to_torch(t_norm)
     C_train = to_torch(C_norm)
 
-    # ── collocation points ────────────────────────────────────────────────────
+    # create collocation points 
     t_col_np = create_uniform_collocation(N_COLLOC_S2, t_norm)
     T_col    = to_torch(t_col_np, requires_grad=True)
 
-    # ── build model ───────────────────────────────────────────────────────────
-    net         = FeedForwardNet(hidden_dim=HIDDEN_DIM_S2, n_hidden=N_HIDDEN_S2)
+    # build model
+    net = FeedForwardNet(hidden_dim=HIDDEN_DIM_S2, n_hidden=N_HIDDEN_S2)
     param_model = SigmoidChangepoint(
         t_left=t_left, t_right=t_right,
-        log_Q_init=LOG_Q_INIT_S2, log_S_init=LOG_S_INIT_S2,
+        log_Q_init=log_Q_init, log_S_init=log_S_init,
         kappa=KAPPA
     )
     model = PINN(net, param_model)
 
-    # ── optimisers and schedulers ─────────────────────────────────────────────
-    net_params   = list(model.net.parameters())
-    phys_params  = list(model.param_model.parameters())
+    # optimizers and schedulers
+    net_params = list(model.net.parameters())
+    phys_params = list(model.param_model.parameters())
 
-    opt_net    = torch.optim.Adam(net_params,  lr=LR_NET_S2)
+    opt_net = torch.optim.Adam(net_params,  lr=LR_NET_S2)
     opt_params = torch.optim.Adam(phys_params, lr=LR_PARAMS_S2)
 
-    sched_net    = torch.optim.lr_scheduler.CosineAnnealingLR(
-        opt_net,    T_max=EPOCHS_S2, eta_min=1e-5
+    sched_net = torch.optim.lr_scheduler.CosineAnnealingLR(
+        opt_net, T_max=EPOCHS_S2, eta_min=1e-5
     )
     sched_params = torch.optim.lr_scheduler.CosineAnnealingLR(
         opt_params, T_max=EPOCHS_S2, eta_min=1e-3
     )
 
-    # ── history and training ──────────────────────────────────────────────────
+    # history and training
     history = make_history_stage2()
 
     if verbose:
@@ -152,7 +114,7 @@ def run_stage2(t_np, C_meas_np, t_left, t_right,
         print_header(pinn_type="stage2")
 
     # wrap print_row call inside a print_log_fn so train_loop can call it
-    print_every_ref = [print_every]   # use list so closure can read it
+    print_every_ref = [print_every] # use list so closure can read it
 
     def printing_log_fn(model, history, epoch):
         log_fn_stage2(model, history, epoch)
@@ -179,7 +141,7 @@ def run_stage2(t_np, C_meas_np, t_left, t_right,
         log_fn=printing_log_fn,
     )
 
-    # ── extract results ───────────────────────────────────────────────────────
+    # extract results 
     pm  = model.param_model
     result = {
         "tau":        pm.tau.item(),

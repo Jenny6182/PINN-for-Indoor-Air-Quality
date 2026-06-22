@@ -1,0 +1,48 @@
+Running: Q_init=1, S_init=0.05, path=./data/datasets/varying_pinn_datasets/varying_Q.csv
+RAA-PINN Pipeline
+File: ./data/datasets/varying_pinn_datasets/varying_Q.csv
+============================================================
+
+Loaded 481 timepoints  (t = 0.00h to 8.00h)
+
+--- Stage I: Sliding Window Scan ---
+  window_size=20, sigma=1.5
+  Auto prominence = 7.240e+08 (15% of max score)
+
+  Detected 3 candidate changepoints:
+    [1] peak at t=2.417h  -> interval [2.017h, 2.817h]
+    [2] peak at t=3.933h  -> interval [3.533h, 4.333h]
+    [3] peak at t=4.467h  -> interval [4.067h, 4.867h]
+
+--- Stage II: Joint Refinement (One PINN) ---
+
+  Stage II — full time domain [0.000h, 8.000h]  (481 points) with 3 changepoints
+ Epoch        Loss        Data        Phys         tau(1st)        Q-        Q+          S-          S+
+---------------------------------------------------------------------------
+     1  1.0698e+00  1.0698e+00  0.0000e+00     2.417 (3cp)       1.0       1.0    5.00e-02    5.00e-02
+   500  9.8345e-01  9.7254e-01  4.2962e-02     0.173 (3cp)       0.3       0.2    4.54e-01    1.39e+00
+  1000  9.4162e-01  9.3637e-01  1.2382e-02     0.022 (3cp)       0.2       0.2    5.57e+02    9.11e-01
+  1500  9.4071e-01  9.3464e-01  1.4355e-02     0.018 (3cp)       0.2       0.2    7.53e+02    9.16e-01
+  2000  9.4055e-01  9.3429e-01  1.4793e-02     0.027 (3cp)       0.2       0.2    7.18e+02    9.11e-01
+  2500  9.4011e-01  9.3350e-01  1.5615e-02     0.031 (3cp)       0.2       0.2    7.01e+02    9.16e-01
+  3000  9.3605e-01  9.2769e-01  1.9758e-02     0.039 (3cp)       0.2       0.2    6.54e+02    9.25e-01
+
+  Result: 3 changepoints optimized
+    [1] tau=0.039h  Q: 0.2 -> 0.2  S: 6.537e+02 -> 9.248e-01
+    [2] tau=0.012h  Q: 0.2 -> 0.0  S: 9.248e-01 -> 6.866e+02
+    [3] tau=6.663h  Q: 0.0 -> 0.1  S: 6.866e+02 -> 1.265e+03
+
+============================================================
+Summary: 3 changepoints detected and refined
+============================================================
+    #   tau_est   Q_minus    Q_plus     S_minus      S_plus
+  ------------------------------------------------------------
+    1     0.039       0.2       0.2    6.54e+02    9.25e-01
+    2     0.012       0.2       0.0    9.25e-01    6.87e+02
+    3     6.663       0.0       0.1    6.87e+02    1.27e+03
+
+  True Q at each detected changepoint:
+    [1] tau=0.039h  Q_true before=641.8  Q_true after=641.8  |  estimated Q-=0.2  Q+=0.2
+    [2] tau=0.012h  Q_true before=641.8  Q_true after=641.8  |  estimated Q-=0.2  Q+=0.0
+    [3] tau=6.663h  Q_true before=675.9  Q_true after=675.9  |  estimated Q-=0.0  Q+=0.1
+Saved -> results\sensitivity_analysis\varying_Q_Q1_S0.05\raa_diagnostic.png

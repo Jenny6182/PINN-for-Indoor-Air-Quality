@@ -1,0 +1,11 @@
+path,Q_init,S_init,tau,Q_minus,Q_plus,S_minus,S_plus
+./data/datasets/varying_pinn_datasets/varying_Q.csv,600,0.1,0.831405,29.524601,140.63481,9326.637,3.403667
+./data/datasets/varying_pinn_datasets/varying_Q.csv,600,0.1,2.4658325,140.63481,650.9567,3.403667,0.060106635
+./data/datasets/varying_pinn_datasets/varying_Q.csv,600,0.1,0.020326346,650.9567,568.0104,0.060106635,0.10463549
+./data/datasets/varying_pinn_datasets/varying_Q.csv,600,0.1,2.8890421,568.0104,480.79214,0.10463549,0.21174914
+./data/datasets/varying_pinn_datasets/varying_Q.csv,600,0.1,1.7733634,480.79214,273.58328,0.21174914,0.15211682
+./data/datasets/varying_pinn_datasets/varying_Q.csv,600,0.1,6.916984,273.58328,515.25323,0.15211682,0.0610398
+./data/datasets/varying_pinn_datasets/varying_Q.csv,600,0.1,2.7150044,515.25323,240.58311,0.0610398,0.5284615
+./data/datasets/varying_pinn_datasets/varying_Q.csv,600,0.1,7.9661584,240.58311,401.5895,0.5284615,0.13055423
+./data/datasets/varying_pinn_datasets/varying_Q.csv,600,0.1,6.916765,401.5895,91.944916,0.13055423,0.9978476
+./data/datasets/varying_pinn_datasets/varying_Q.csv,600,0.1,7.9589434,91.944916,9.6632185,0.9978476,2.2437685

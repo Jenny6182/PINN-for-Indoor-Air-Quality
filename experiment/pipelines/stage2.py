@@ -38,7 +38,7 @@ from experiment.configs.config import V, C_out
 
 N_HIDDEN_S2      = 2
 HIDDEN_DIM_S2    = 32
-N_COLLOC_S2      = 300
+N_COLLOC_S2      = 1000 # originally 300
 LR_NET_S2        = 3e-3
 LR_PARAMS_S2     = 1e-2
 EPOCHS_S2        = 3000

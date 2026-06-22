@@ -10,6 +10,7 @@
 import sys
 import numpy as np
 import experiment.pipelines.raapinn as rp
+import experiment.pipelines.one_raapinn as orp
 import os
 # Get the current working directory
 current_dir = os.getcwd()
@@ -24,8 +25,12 @@ import csv
 
 datasets = ["./data/datasets/varying_pinn_datasets/varying_Q.csv", 
             "./data/datasets/varying_pinn_datasets/varying_S.csv"]
-Q_values = [50, 100, 200, 500]
-S_values = [1e4, 1e5, 1e6]
+V = 1e6 
+
+Q_values = [50, 100, 200, 400, 600, 800]
+S_vol = [0.05, 0.1, 0.2, 0.3]
+S_values = [item * V for item in S_vol]
+
 combinations = product(datasets, Q_values, S_values)
 
 all_results = []
@@ -46,6 +51,7 @@ for path, Q_init, S_init in combinations:
             path=path,
             log_Q_init=np.log(Q_init),
             log_S_init=np.log(S_init),
+            k=None, prominence_factor=0.15,
             run_dir=run_dir,
         )
 
@@ -72,7 +78,7 @@ for path, Q_init, S_init in combinations:
                     "S_plus": r["S_plus"],
                 }
                 rows.append(row)
-                all_results.extend(rows)
+            all_results.extend(rows)
             
             writer = csv.DictWriter(f, fieldnames=rows[0].keys())
             writer.writeheader()

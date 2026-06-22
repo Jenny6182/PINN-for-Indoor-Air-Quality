@@ -281,7 +281,25 @@ def main(path="./data/datasets/varying_pinn_datasets/varying_Q.csv",
         output_path=output_path,
     )
 
-    return stage2_result
+    # return stage2_result
+    results = []
+
+    for tau, Q_m, Q_p, S_m, S_p in zip(
+        stage2_result["taus"],
+        stage2_result["Q_minus"],
+        stage2_result["Q_plus"],
+        stage2_result["S_minus"],
+        stage2_result["S_plus"],
+    ):
+        results.append({
+            "tau": tau,
+            "Q_minus": Q_m,
+            "Q_plus": Q_p,
+            "S_minus": S_m,
+            "S_plus": S_p,
+        })
+
+    return results
 
 
 if __name__ == "__main__":

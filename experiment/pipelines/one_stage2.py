@@ -32,20 +32,17 @@ from core.pinn.collocation import create_uniform_collocation, to_torch
 from core.utils.logger import make_history_one_pinn, log_fn_one_pinn, print_header, print_row
 from experiment.configs.config import V, C_out
 
-
-# ── Stage II hyperparameters ──────────────────────────────────────────────────
-# Smaller than the full PINN since we're training on a short interval only
-
+# Hyperparameters
 N_HIDDEN_S2      = 2
 HIDDEN_DIM_S2    = 32
-N_COLLOC_S2      = 300
+N_COLLOC_S2      = 1000 # originally 300
 LR_NET_S2        = 3e-3
 LR_PARAMS_S2     = 1e-2
 EPOCHS_S2        = 3000
 WARMUP_EPOCHS_S2 = 200
 LAMBDA_PHYS_S2   = 1.0
 RAMP_EPOCHS_S2   = 500
-KAPPA            = 50.0    # sigmoid sharpness — higher = sharper step approximation
+KAPPA            = 50.0    # sigmoid sharpness, higher = sharper step approximation
 
 def run_one_stage2(t_np, C_meas_np, tau_inits, t_min, t_max, log_Q_init, log_S_init,
                print_every=500, verbose=True):

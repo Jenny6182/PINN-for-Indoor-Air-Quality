@@ -55,6 +55,12 @@ from core.utils.plotting import plot_all_simple
 
 training_data = prepare_training_data(path, x_col, y_col)
 
+"""
+1. prepare training data
+2. create pinn class
+3. 
+"""
+
 # ----- PINN model -----
 class PINN(nn.Module):
     def __init__(self, hidden_dim=64, n_hidden=3):
@@ -186,6 +192,23 @@ def parse_true_params(path):
     return Q, S_ode, S_vol
 
 
+
+import numpy as np
+import torch
+import torch.nn as nn
+
+from core.pinn.pinn_architecture import (
+    FeedForwardNet,
+    MultiSigmoidChangepoint,
+    PINN,
+    physics_residual,
+    train_loop,
+)
+from core.utils.preprocessing import compute_stats, normalize_with_stats, standardize_with_stats
+from core.pinn.collocation import create_uniform_collocation, to_torch
+from core.utils.logger import make_history_one_pinn, log_fn_one_pinn, print_header, print_row
+from experiment.configs.config import V, C_out
+
 def main(path, plot_output_path=None, Q_true=None, S_true=None):
 
     # FIX: use Path.stem so the extension is never included in S
@@ -202,6 +225,8 @@ def main(path, plot_output_path=None, Q_true=None, S_true=None):
     training_data = prepare_training_data(path, "t_hours", "C_meas_ppm")
 
     create_uniform_collocation()
+
+    compute_stats(training_data[])
 
 import numpy as np
 import torch

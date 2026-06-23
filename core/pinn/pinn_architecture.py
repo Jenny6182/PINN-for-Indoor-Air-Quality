@@ -11,6 +11,7 @@ import matplotlib.gridspec as gridspec
 from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
+from abc import ABC, abstractmethod
 
 #----- PINN class -----
 class PINN(nn.Module):
@@ -58,7 +59,14 @@ class FeedForwardNet(nn.Module):
     def forward(self, t_norm):
         return self.net(t_norm)
     
-class ConstantParams(nn.Module):
+class ParamModel(nn.Module, ABC):
+
+    @abstractmethod
+    def get_Q_S(self, t_phys):
+        pass
+
+
+class ConstantParams(ParamModel):
      """Constant parameter model that assumes Q and S are constants, and only adding those to the network.
      This parameter model control Q and S, which are to be optimized for."""
      def __init__(self, log_Q_init, log_S_init):
@@ -77,7 +85,7 @@ class ConstantParams(nn.Module):
         # return tensors that represent vectors, (N, 1), Q and S
 
 
-class SegmentParams(nn.Module):
+class SegmentParams(ParamModel):
     """Segment parameter model that assumes Q or S are constant piecewise functions, and adding each segment constant
     to the network. This parameter model control all the Q or S segments, when the other is constant, 
     it simply takes same number as the value for all segments. All segments start initial guess from log_Q_init and log_S_init"""
@@ -103,7 +111,7 @@ class SegmentParams(nn.Module):
         return Q, S
     # return tensors that represent vectors, (N, 1), Q and S
 
-class SigmoidChangepoint(nn.Module):
+class SigmoidChangepoint(ParamModel):
     """Sigmoid changepoint parameter model assumes Q and S are no longer step functions, instead, they are sigmoid functions
     that are differentiable. This is typically paired with RAA-PINN. This model adds 4 trainable scalars log parametrized,
     which is used for each run of RAA-PINN stage 2 in individual segments.
@@ -141,7 +149,7 @@ class SigmoidChangepoint(nn.Module):
         # return tensors that represent vectors, (N, 1), Q and S
 
 
-class MultiSigmoidChangepoint(nn.Module):
+class MultiSigmoidChangepoint(ParamModel):
     def __init__(self, t_min, t_max, tau_inits, log_Q_init, log_S_init, kappa=50.0):
         """
         Used for one single RAA-PINN that covers entire time domain in stage 2.
@@ -204,7 +212,6 @@ def train_loop(model, opt_net, opt_params, sched_net, sched_params,
                T_train, C_train, T_col, stats,
                epochs, warmup_epochs, lambda_phys, ramp_epochs,
                history,
-               physics_residual_fn,
                physics_kwargs=None,
                log_fn=None):
 
@@ -256,7 +263,7 @@ def train_loop(model, opt_net, opt_params, sched_net, sched_params,
             loss_phys = torch.tensor(0.0, device=C_train.device) # physics loss = 0
             lam = 0.0 # lam is total weight of physics loss
         else: # afterward, we slowly ramp up how much physics loss is weighted until warmup+rampepochs number to full weight
-            residual = physics_residual_fn(model, T_col, stats, **physics_kwargs) # calculate physics residual
+            residual = physics_residual(model, T_col, stats, **physics_kwargs) # calculate physics residual
             loss_phys = torch.mean(residual ** 2) # calculate physics loss
 
             if phys_loss_init is None: # if it's the first phys epoch

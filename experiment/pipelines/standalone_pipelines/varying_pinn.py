@@ -1,4 +1,8 @@
 """
+DEPRECATED — use experiment/pipelines/varying_pinn.py once implemented.
+This file is a legacy monolithic script kept for reference during the refactor.
+"""
+"""
 PINN to Estimate Piecewise-Constant IAQ CO2 Parameters
 -------------------------------------------------------
 Extension of the constant Q/S PINN to handle piecewise-constant Q(t) and S(t).

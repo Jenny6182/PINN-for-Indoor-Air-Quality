@@ -1,8 +1,0 @@
-
-# ── Stage I tuning ────────────────────────────────────────────────────────────
-WINDOW_SIZE  = 20      # points per sliding window (~20 min at 1-min sampling)
-SIGMA        = 1.5     # Gaussian smoothing sigma before differentiation
-PROMINENCE   = None    # set to None to auto-set as 15% of max score
-# prominence_factor = 0.05 #default 0.15
-DISTANCE     = 20      # min points between peaks (same as WINDOW_SIZE is safe)
-MARGIN_H     = 0.4     # candidate interval half-width around each peak [hours]

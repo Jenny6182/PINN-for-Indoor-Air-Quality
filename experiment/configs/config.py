@@ -1,5 +1,9 @@
 import numpy as np
 
+# NOTE: New code should use experiment.configs.schema (TrainConfig, PhysicsConfig).
+# This module is kept for backward compatibility with existing pipelines.
+# Defaults here may differ from schema.py — migrate imports when refactoring.
+
 # known physical constants 
 V = 100.0   # zone volume, m^3
 C_out = 420.0   # outdoor CO2, ppm

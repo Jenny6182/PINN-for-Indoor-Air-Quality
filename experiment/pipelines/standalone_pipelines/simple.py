@@ -1,4 +1,8 @@
 """
+DEPRECATED — use experiment/pipelines/simple_pinn.py once implemented.
+This file is a legacy monolithic script kept for reference during the refactor.
+"""
+"""
 PINN to Estimate IAQ CO2 Parameters
 -----------------------------------
 PINN has 2 loss components, one is PDE/physics loss, the other is data loss

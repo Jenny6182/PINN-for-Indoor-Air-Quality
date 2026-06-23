@@ -198,3 +198,18 @@ def print_row(epoch, history, pinn_type="simple"):
         print(f"{base}  {taus[0]:>8.3f} ({n_changepoints}cp)  "
               f"{Q_minus[0]:>8.1f}  {Q_plus[0]:>8.1f}  "
               f"{S_minus[0]:>10.2e}  {S_plus[0]:>10.2e}")
+
+
+def make_printing_log_fn(log_fn, pinn_type, print_every=500, verbose=True):
+    """
+    Combine history logging (log_fn) with terminal printing (print_row).
+
+    Pass the returned callable to train_loop as log_fn=.
+    print_row uses print(), so batch scripts with Tee still capture output to run.log.
+  """
+    def printing_log_fn(model, history, epoch):
+        log_fn(model, history, epoch)
+        if verbose and (epoch % print_every == 0 or epoch == 1):
+            print_row(epoch, history, pinn_type=pinn_type)
+
+    return printing_log_fn

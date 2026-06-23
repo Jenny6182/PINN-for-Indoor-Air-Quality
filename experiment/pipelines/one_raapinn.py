@@ -111,9 +111,9 @@ from pathlib import Path
 from core.utils.preprocessing import prepare_training_data, compute_stats
 from core.scan.window_sweeping import *
 from experiment.pipelines.one_stage2 import run_one_stage2
-from core.utils.plotting import plot_all_raa, plot_stage2_interval
+from core.utils.plotting import plot_all_raa, plot_one_raa_training, plot_stage2_interval
 from core.pinn.collocation import to_torch
-from experiment.configs.config import V, C_out, SEED
+from experiment.configs.config import V, C_out, SEED, WARMUP_EPOCHS_S2
 from core.pinn.collocation import to_torch
 from core.utils.preprocessing import normalize_with_stats
 from datetime import datetime
@@ -279,6 +279,12 @@ def main(path="./data/datasets/varying_pinn_datasets/varying_Q.csv",
         Q_true_np=Q_true_np,
         S_true_np=S_true_np,
         output_path=output_path,
+    )
+
+    plot_one_raa_training(
+        stage2_result=stage2_result,
+        warmup_epochs=WARMUP_EPOCHS_S2,
+        output_path=run_dir / "raa_stage2_training.png",
     )
 
     # return stage2_result

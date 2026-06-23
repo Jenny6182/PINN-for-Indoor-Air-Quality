@@ -205,6 +205,38 @@ def plot_stage2_interval(ax, model, t_interval_np, c_interval_np,
     ax.grid(alpha=0.3)
 
 
+def plot_stage2_scalar_convergence(ax, epochs_arr, history, key, label, ylabel, color):
+    """Single scalar parameter convergence for per-interval Stage II PINNs."""
+    ax.plot(epochs_arr, history[key], lw=1.5, color=color, label=label)
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel(ylabel)
+    ax.set_title(label)
+    ax.legend(fontsize=9)
+    ax.grid(alpha=0.3)
+
+
+def plot_stage2_qs_convergence(ax, epochs_arr, history):
+    """Q- and Q+ convergence on one axes for per-interval Stage II PINNs."""
+    ax.plot(epochs_arr, history["Q_minus"], lw=1.5, color="#e67e22", label="Q-")
+    ax.plot(epochs_arr, history["Q_plus"],  lw=1.5, color="#2980b9", label="Q+")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Q [m³/h]")
+    ax.set_title("Q- / Q+ over Training")
+    ax.legend(fontsize=9)
+    ax.grid(alpha=0.3)
+
+
+def plot_stage2_ss_convergence(ax, epochs_arr, history):
+    """S- and S+ convergence on one axes for per-interval Stage II PINNs."""
+    ax.plot(epochs_arr, history["S_minus"], lw=1.5, color="#8e44ad", label="S-")
+    ax.plot(epochs_arr, history["S_plus"],  lw=1.5, color="#27ae60", label="S+")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("S [ppm·m³/h]")
+    ax.set_title("S- / S+ over Training")
+    ax.legend(fontsize=9)
+    ax.grid(alpha=0.3)
+
+
 def plot_piecewise_params(ax_Q, ax_S, t_np,
                           Q_true_np, S_true_np,
                           changepoint_times, Q_values, S_values):
@@ -418,6 +450,87 @@ def plot_all_raa(t_np, c_np, scores, peak_indices,
                           changepoint_times, Q_values, S_values)
 
     fig.suptitle("RAA-PINN — Unknown Boundary Parameter Recovery", fontsize=13, y=1.01)
+    _save(fig, output_path)
+
+
+def plot_all_raa_training(stage2_results, warmup_epochs,
+                          output_path="raa_stage2_training.png"):
+    """
+    Training diagnostics for RAA Stage II (one PINN per detected interval).
+
+    stage2_results: list of result dicts from run_stage2(), each must include 'history'
+                    with keys from make_history_stage2().
+    """
+    if not stage2_results:
+        return
+
+    n = len(stage2_results)
+    fig = plt.figure(figsize=(14, 4 * n))
+    gs  = gridspec.GridSpec(n, 4, figure=fig, hspace=0.55, wspace=0.35)
+
+    for i, result in enumerate(stage2_results):
+        history    = result["history"]
+        epochs_arr = np.arange(1, len(history["loss_total"]) + 1)
+        label      = f"changepoint {i + 1}"
+
+        ax_loss = fig.add_subplot(gs[i, 0])
+        plot_loss_curves(ax_loss, epochs_arr, history, warmup_epochs)
+        ax_loss.set_title(f"Losses — {label}")
+
+        ax_tau = fig.add_subplot(gs[i, 1])
+        plot_stage2_scalar_convergence(
+            ax_tau, epochs_arr, history, key="tau",
+            label=f"τ — {label}", ylabel="τ [h]", color="#e74c3c",
+        )
+
+        ax_q = fig.add_subplot(gs[i, 2])
+        plot_stage2_qs_convergence(ax_q, epochs_arr, history)
+
+        ax_s = fig.add_subplot(gs[i, 3])
+        plot_stage2_ss_convergence(ax_s, epochs_arr, history)
+
+    fig.suptitle("RAA-PINN — Stage II Training Diagnostics", fontsize=13, y=1.01)
+    _save(fig, output_path)
+
+
+def plot_one_raa_training(stage2_result, warmup_epochs,
+                          output_path="raa_one_pinn_training.png"):
+    """
+    Training diagnostics for the single-PINN RAA variant (MultiSigmoidChangepoint).
+
+    stage2_result: result dict from run_one_stage2(), history from make_history_one_pinn().
+    """
+    history = stage2_result["history"]
+    n_epochs = len(history["loss_total"])
+    if n_epochs == 0:
+        return
+
+    epochs_arr = np.arange(1, n_epochs + 1)
+    taus_hist  = np.array(history["taus"])       # shape (n_epochs, K)
+    K          = taus_hist.shape[1]
+
+    n_param_rows = 1 + (K + 1) // 2
+    fig = plt.figure(figsize=(14, 4 + 3 * n_param_rows))
+    gs  = gridspec.GridSpec(1 + n_param_rows, 2, figure=fig, hspace=0.55, wspace=0.35)
+
+    ax_loss = fig.add_subplot(gs[0, :])
+    plot_loss_curves(ax_loss, epochs_arr, history, warmup_epochs)
+    ax_loss.set_title("Training Losses — One PINN (full domain)")
+
+    tau_colors = plt.cm.Set1(np.linspace(0, 0.8, max(K, 1)))
+    for k in range(K):
+        row = 1 + k // 2
+        col = k % 2
+        ax = fig.add_subplot(gs[row, col])
+        ax.plot(epochs_arr, taus_hist[:, k], lw=1.5, color=tau_colors[k],
+                label=f"τ̂_{k + 1}")
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("τ [h]")
+        ax.set_title(f"Changepoint {k + 1} — τ convergence")
+        ax.legend(fontsize=9)
+        ax.grid(alpha=0.3)
+
+    fig.suptitle("RAA-PINN (One PINN) — Stage II Training Diagnostics", fontsize=13, y=1.01)
     _save(fig, output_path)
 
 

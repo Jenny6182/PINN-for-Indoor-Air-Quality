@@ -83,6 +83,7 @@ PROMINENCE   = None    # set to None to auto-set as 15% of max score
 # prominence_factor = 0.05 #default 0.15
 DISTANCE     = 20      # min points between peaks (same as WINDOW_SIZE is safe)
 MARGIN_H     = 0.4     # candidate interval half-width around each peak [hours]
+WARMUP_EPOCHS = 500     # how many epochs to use only data loss
 
 # ----- SET SEED -----
 # pick a seed and always use it to make the initial weights, for reproducibility while tuning hyperparams
@@ -90,7 +91,7 @@ torch.manual_seed(SEED) # set random numbers in torch
 np.random.seed(SEED) # in numpy
 
 
-def main(path="./data/datasets/varying_pinn_datasets/iaq_co2_varying_Q.csv", 
+def main(path="./data/datasets/varying_pinn_datasets/varying_Q.csv", 
          log_Q_init=np.log(200.0),
          log_S_init=np.log(1e5),
          k=None, prominence_factor=0.15,

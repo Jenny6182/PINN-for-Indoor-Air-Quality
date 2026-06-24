@@ -127,6 +127,7 @@ PROMINENCE   = None    # set to None to auto-set as 15% of max score
 # prominence_factor = 0.05 #default 0.15
 DISTANCE     = 20      # min points between peaks (same as WINDOW_SIZE is safe)
 MARGIN_H     = 0.4     # candidate interval half-width around each peak [hours]
+WARMUP_EPOCHS = 500     # how many epochs to use only data loss
 
 # ----- SET SEED -----
 # pick a seed and always use it to make the initial weights, for reproducibility while tuning hyperparams
@@ -278,6 +279,9 @@ def main(path="./data/datasets/varying_pinn_datasets/varying_Q.csv",
         stage2_results=stage2_results_for_plot,
         Q_true_np=Q_true_np,
         S_true_np=S_true_np,
+        epochs_arr = np.arange(len(stage2_result["history"]["loss_total"])),
+        history = stage2_result["history"],
+        warmup_epochs = WARMUP_EPOCHS,
         output_path=output_path,
     )
 
@@ -321,4 +325,4 @@ if __name__ == "__main__":
         
         results = main(dataset_path, log_Q_init, log_S_init, k, prominence_factor)
 
-    print(results.keys())
+    print(results)

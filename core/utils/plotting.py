@@ -378,46 +378,94 @@ def plot_all_varying(model, history, t_np, c_np, t_train_np, c_train_np,
     _save(fig, output_path)
 
 
+# def plot_all_raa(t_np, c_np, scores, peak_indices,
+#                  stage2_results, Q_true_np, S_true_np, epochs_arr, history, warmup_epochs,
+#                  output_path="iaq_pinn_raa_diagnostics.png"):
+#     """
+#     Diagnostic plot for RAA-PINN.
+#     Panels: stage1 scores | piecewise Q(t) | piecewise S(t)
+
+#     stage2_results: list of dicts, one per detected changepoint, each containing:
+#         {
+#             "tau":     float,   estimated changepoint time
+#             "Q_minus": float,   Q before the jump
+#             "Q_plus":  float,   Q after the jump
+#             "S_minus": float,   S before the jump
+#             "S_plus":  float,   S after the jump
+#         }
+#     """
+#     # extract changepoint times and build segment Q/S arrays
+#     changepoint_times = sorted([r["tau"] for r in stage2_results])
+
+#     # Q values: first segment gets Q_minus of first changepoint,
+#     # then each Q_plus becomes the next segment's value
+#     results_sorted = sorted(stage2_results, key=lambda r: r["tau"])
+#     Q_values = [results_sorted[0]["Q_minus"]] + [r["Q_plus"] for r in results_sorted]
+#     S_values = [results_sorted[0]["S_minus"]] + [r["S_plus"] for r in results_sorted]
+
+#     fig = plt.figure(figsize=(14, 14))
+#     gs  = gridspec.GridSpec(3, 2, figure=fig, hspace=0.5, wspace=0.35)
+
+#     fig = plt.figure(figsize=(15, 20))
+#     gs  = gridspec.GridSpec(5, 2, figure=fig, hspace=0.5, wspace=0.35)
+
+#     ax_loss = fig.add_subplot(gs[0, :])
+#     plot_loss_curves(ax_loss, epochs_arr, history, warmup_epochs)
+
+#     # stage 1 scores full width
+#     ax_scores = fig.add_subplot(gs[0, :])
+#     plot_stage1_scores(ax_scores, t_np, scores, peak_indices)
+
+#     # piecewise Q and S
+#     ax_Q = fig.add_subplot(gs[1, :])
+#     ax_S = fig.add_subplot(gs[2, :])
+#     plot_piecewise_params(ax_Q, ax_S, t_np,
+#                           Q_true_np, S_true_np,
+#                           changepoint_times, Q_values, S_values)
+
+#     fig.suptitle("RAA-PINN — Unknown Boundary Parameter Recovery", fontsize=13, y=1.01)
+#     _save(fig, output_path)
+
+
 def plot_all_raa(t_np, c_np, scores, peak_indices,
                  stage2_results, Q_true_np, S_true_np,
+                 epochs_arr, history, warmup_epochs,
                  output_path="iaq_pinn_raa_diagnostics.png"):
-    """
-    Diagnostic plot for RAA-PINN.
-    Panels: stage1 scores | piecewise Q(t) | piecewise S(t)
 
-    stage2_results: list of dicts, one per detected changepoint, each containing:
-        {
-            "tau":     float,   estimated changepoint time
-            "Q_minus": float,   Q before the jump
-            "Q_plus":  float,   Q after the jump
-            "S_minus": float,   S before the jump
-            "S_plus":  float,   S after the jump
-        }
-    """
-    # extract changepoint times and build segment Q/S arrays
     changepoint_times = sorted([r["tau"] for r in stage2_results])
 
-    # Q values: first segment gets Q_minus of first changepoint,
-    # then each Q_plus becomes the next segment's value
     results_sorted = sorted(stage2_results, key=lambda r: r["tau"])
     Q_values = [results_sorted[0]["Q_minus"]] + [r["Q_plus"] for r in results_sorted]
     S_values = [results_sorted[0]["S_minus"]] + [r["S_plus"] for r in results_sorted]
 
-    fig = plt.figure(figsize=(14, 14))
-    gs  = gridspec.GridSpec(3, 2, figure=fig, hspace=0.5, wspace=0.35)
+    fig = plt.figure(figsize=(15, 20))
+    gs  = gridspec.GridSpec(5, 1, figure=fig, hspace=0.5)
 
-    # stage 1 scores full width
-    ax_scores = fig.add_subplot(gs[0, :])
+
+    # 1. LOSS
+    ax_loss = fig.add_subplot(gs[0])
+    plot_loss_curves(ax_loss, epochs_arr, history, warmup_epochs)
+
+    # 2. STAGE I
+    ax_scores = fig.add_subplot(gs[1])
     plot_stage1_scores(ax_scores, t_np, scores, peak_indices)
 
-    # piecewise Q and S
-    ax_Q = fig.add_subplot(gs[1, :])
-    ax_S = fig.add_subplot(gs[2, :])
+    # 3. PIECEWISE PARAMS
+    ax_Q = fig.add_subplot(gs[2])
+    ax_S = fig.add_subplot(gs[3])
     plot_piecewise_params(ax_Q, ax_S, t_np,
-                          Q_true_np, S_true_np,
-                          changepoint_times, Q_values, S_values)
+                        Q_true_np, S_true_np,
+                        changepoint_times, Q_values, S_values)
 
-    fig.suptitle("RAA-PINN — Unknown Boundary Parameter Recovery", fontsize=13, y=1.01)
+    plot_piecewise_params(
+        ax_Q, ax_S,
+        t_np,
+        Q_true_np, S_true_np,
+        changepoint_times,
+        Q_values, S_values
+    )
+
+    fig.suptitle("RAA-PINN — Unknown Boundary Parameter Recovery", fontsize=13)
     _save(fig, output_path)
 
 

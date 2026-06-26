@@ -27,8 +27,7 @@ from pathlib import Path
 import numpy as np
 
 # Supported values — used by registry and factory (not enforced at runtime yet)
-PARAM_MODEL_TYPES = ("constant", "segment", "sigmoid_cp", "multi_sigmoid_cp")
-COLLOCATION_TYPES = ("uniform", "piecewise")
+PARAM_MODEL_TYPES = ("constant", "segment", "multi_sigmoid_cp")
 
 
 @dataclass
@@ -74,6 +73,7 @@ class Stage1Config:
     
 @dataclass
 class DataConfig:
+    dataset_path: str = "" # path to csv
     x_col: str = "t"
     y_col: str = "C_meas"
     extra_cols: list[str] = field(default_factory=list)
@@ -92,14 +92,16 @@ class ParamModelContext:
     Fields used per param_model_type:
         constant          — (none)
         segment           — (n_segments, segment_duration from cfg)
-        sigmoid_cp        — t_left, t_right
         multi_sigmoid_cp  — t_min, t_max, tau_inits
     """
-    t_left: float | None = None
-    t_right: float | None = None
     t_min: float | None = None
     t_max: float | None = None
     tau_inits: list[float] | None = None
+
+@dataclass
+class TrueValues:
+    Q: list[float] | None = None
+    S: list[float] | None = None
 
 
 @dataclass
@@ -110,26 +112,19 @@ class ExperimentConfig:
     Declarative, JSON-serializable choices. Wiring (history_factory, log_fn)
     is resolved from param_model_type via core.pinn.registry.
     """
-    name: str = "simple_pinn"
-    dataset_path: str = ""
-    param_model_type: str = "constant"
-    collocation_type: str = "uniform"
-    run_dir: Path | None = None
-    physics: PhysicsConfig = field(default_factory=PhysicsConfig)
-    train: TrainConfig = field(default_factory=TrainConfig)
-    data: DataConfig = field(default_factory=DataConfig)
-    stage1: Stage1Config = field(default_factory=Stage1Config)
+    # -- required --
+    name: str = "simple_pinn" # used for labels output
+    param_model_type: str = "constant" # constant | segment | multi_sigmoid_cp
+    run_dir: Path | None = None # where to save outputs/plots
 
-    # RAA
-    stage2_mode: str = "per_interval"   # "per_interval" | "one_pinn"
+    physics: PhysicsConfig = field(default_factory=PhysicsConfig) # physics constants
+    train: TrainConfig = field(default_factory=TrainConfig) # trainer hyperparams
+    data: DataConfig = field(default_factory=DataConfig) # where's the csv, which columns to extract in the csv
+
+    # -- optional --
+    # raa
+    stage1: Stage1Config = field(default_factory=Stage1Config) # for raa
 
     # Varying PINN
-    n_segments: int | None = None
-    segment_duration: float | None = None
-
-
-def load_config(path: str | Path) -> ExperimentConfig:
-    """Load ExperimentConfig from YAML. TODO: implement with PyYAML or OmegaConf."""
-    raise NotImplementedError(
-        f"YAML loading not implemented yet. Use presets or build ExperimentConfig manually. ({path})"
-    )
+    n_segments: int | None = None # for factory and collocation
+    segment_duration: float | None = None # for factory and collocation

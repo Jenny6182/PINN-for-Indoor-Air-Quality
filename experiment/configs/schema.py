@@ -57,6 +57,8 @@ class TrainConfig:
     kappa: float = 50.0
     seed: int = 42
     boundary_offset: float = 0.02   # piecewise collocation only
+    print_every: int = 500
+    verbose: bool = True
 
 
 @dataclass

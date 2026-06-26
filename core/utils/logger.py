@@ -20,16 +20,22 @@ def make_history() -> dict:
         "taus":       [] # none or array per epoch
     }
 
-def log_fn(model, history):
+def log_fn(model, history, loss, loss_data, loss_phys):
     """
     Train loop calls this function at certain number of epochs to 
-    record current estimates of Q, S, and tau
+    record current estimates of Q, S, and tau,
+    and current physics loss, data loss, total loss
     """
     with torch.no_grad():
         estimates = model.param_model.get_final_estimates()
+        
         history["Q"].append(estimates["Q"])
         history["S"].append(estimates["S"])
         history["taus"].append(estimates["taus"])
+
+        history["loss_total"].append(loss.item())
+        history["loss_data"].append(loss_data.item())
+        history["loss_phys"].append(loss_phys.item())
 
 
 def print_header():

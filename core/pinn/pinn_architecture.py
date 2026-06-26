@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from sklearn.model_selection import train_test_split
+from core.utils.logger import log_fn, print_row
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -66,7 +67,7 @@ class ParamModel(nn.Module, ABC):
     def get_Q_S(self, t_phys: Tensor) -> tuple[Tensor, Tensor]:
         """
         Called inside physics_residual during training.
-    Takes t_phys tensor shape (N, 1), returns Q and S tensors shape (N, 1).
+        Takes t_phys tensor shape (N, 1), returns Q and S tensors shape (N, 1).
         """
         pass
 
@@ -213,12 +214,11 @@ class MultiSigmoidChangepoint(ParamModel):
     
 
 def train_loop(model, opt_net, opt_params, sched_net, sched_params,
-               T_train, C_train, T_col, stats,
-               epochs, warmup_epochs, lambda_phys, ramp_epochs,
+               T_train, C_train, T_col, stats, 
+               cfg_train,
                history,
-               physics_kwargs=None,
-               log_fn=None):
-
+               physics_kwargs=None
+               ):
     """
     Generic training loop for PINN, including warm-up stage, ramp, auto_scale, loss combination, backward, step.
 
@@ -254,7 +254,7 @@ def train_loop(model, opt_net, opt_params, sched_net, sched_params,
     phys_loss_init = None
     auto_scale_frozen = None
 
-    for epoch in range(1, epochs + 1):
+    for epoch in range(1, cfg_train.epochs + 1):
         opt_net.zero_grad()  # clear old gradients
         opt_params.zero_grad()  # clear old parameters' gradients
 
@@ -262,7 +262,7 @@ def train_loop(model, opt_net, opt_params, sched_net, sched_params,
         loss_data = torch.mean((C_pred_train - C_train)**2) # compute data loss
         
         # --- physics loss (zero during warm-up) ---
-        if epoch <= warmup_epochs: # for the first warmup_epochs we don't use physics loss and only consider data loss
+        if epoch <= cfg_train.warmup_epochs: # for the first warmup_epochs we don't use physics loss and only consider data loss
             loss_phys = torch.tensor(0.0, device=C_train.device) # physics loss = 0
             lam = 0.0 # lam is total weight of physics loss
         else: # afterward, we slowly ramp up how much physics loss is weighted until warmup+rampepochs number to full weight
@@ -274,8 +274,8 @@ def train_loop(model, opt_net, opt_params, sched_net, sched_params,
                 auto_scale_frozen = (loss_data.detach().item() / (phys_loss_init + 1e-8))
             
             # if it went over 1, choose 1 as ramp frac because that's the largest weight / full weight for physics loss
-            ramp_frac = min(1.0, (epoch - warmup_epochs) / ramp_epochs)
-            lam = (lambda_phys * ramp_frac * auto_scale_frozen)
+            ramp_frac = min(1.0, (epoch - cfg_train.warmup_epochs) / cfg_train.ramp_epochs)
+            lam = (cfg_train.lambda_phys * ramp_frac * auto_scale_frozen)
          
         loss = loss_data + lam * loss_phys # calculate total loss
         loss.backward() # computes all gradients of loss
@@ -283,15 +283,11 @@ def train_loop(model, opt_net, opt_params, sched_net, sched_params,
         opt_params.step()
         sched_net.step() # decay learning rate according to cosine schedule
         sched_params.step()
-        
-        # add data to corresponding history list
-        history["loss_total"].append(loss.item())
-        history["loss_data"].append(loss_data.item())
-        history["loss_phys"].append(loss_phys.item())
 
-        # call logging function
-        if log_fn is not None:
-            log_fn(model, history, epoch)
+        # call logging function to add to history dict
+        log_fn(model, history, loss, loss_data, loss_phys)
+
+        print_row()
 
     return history
 

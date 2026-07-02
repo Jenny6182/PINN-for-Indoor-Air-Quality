@@ -9,17 +9,13 @@ The trainer receives the built module — it does not construct param models its
 
 from __future__ import annotations
 
-import torch.nn as nn
-
 from core.pinn.pinn_architecture import (
     ConstantParams,
     MultiSigmoidChangepoint,
     SegmentParams,
-    SigmoidChangepoint,
+    ParamModel
 )
-from core.pinn.registry import validate_config_tags
 from experiment.configs.schema import ExperimentConfig, ParamModelContext
-
 
 def build_param_model(cfg: ExperimentConfig, ctx: ParamModelContext) -> ParamModel:
     """
@@ -35,14 +31,8 @@ def build_param_model(cfg: ExperimentConfig, ctx: ParamModelContext) -> ParamMod
     Returns
     -------
     nn.Module
-        One of ConstantParams, SegmentParams, SigmoidChangepoint,
-        MultiSigmoidChangepoint.
-
-  TODO (you implement):
-        Copy constructors from stage2.py / one_stage2.py / pinn_architecture.py.
-        Raise ValueError if required ctx fields are missing for the chosen type.
+        One of ConstantParams, SegmentParams, MultiSigmoidChangepoint.
     """
-    validate_config_tags(cfg.param_model_type, cfg.collocation_type)
     train = cfg.train
 
     if cfg.param_model_type == "constant":
@@ -63,17 +53,6 @@ def build_param_model(cfg: ExperimentConfig, ctx: ParamModelContext) -> ParamMod
             segment_duration=cfg.segment_duration,
         )
 
-    if cfg.param_model_type == "sigmoid_cp":
-        if ctx.t_left is None or ctx.t_right is None:
-            raise ValueError("sigmoid_cp requires ctx.t_left and ctx.t_right")
-        return SigmoidChangepoint(
-            t_left=ctx.t_left,
-            t_right=ctx.t_right,
-            log_Q_init=train.log_Q_init,
-            log_S_init=train.log_S_init,
-            kappa=train.kappa,
-        )
-
     if cfg.param_model_type == "multi_sigmoid_cp":
         if ctx.t_min is None or ctx.t_max is None or not ctx.tau_inits:
             raise ValueError(
@@ -88,4 +67,4 @@ def build_param_model(cfg: ExperimentConfig, ctx: ParamModelContext) -> ParamMod
             kappa=train.kappa,
         )
 
-    raise KeyError(f"Unhandled param_model_type: {cfg.param_model_type!r}")
+    raise ValueError(f"Unhandled param_model_type: {cfg.param_model_type!r}")

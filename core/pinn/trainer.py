@@ -9,12 +9,12 @@ Call pattern
     from core.pinn.trainer import build_and_train_pinn
     from experiment.configs.schema import ParamModelContext
 
-    ctx = ParamModelContext(t_left=..., t_right=...)   # if RAA per-interval
+    ctx = ParamModelContext()                    # empty for constant/segment
+    ctx = ParamModelContext(t_min=..., t_max=..., tau_inits=...)  # for RAA
     param_model = build_param_model(cfg, ctx)
     result = build_and_train_pinn(t_np, C_np, cfg, param_model)
 
-cfg supplies hyperparams (cfg.train, cfg.physics) and tags (param_model_type,
-collocation_type). Registry resolves history_factory / log_fn from param_model_type.
+cfg supplies hyperparams (cfg.train, cfg.physics) and tags (param_model_type).
 """
 
 from __future__ import annotations
@@ -22,21 +22,20 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-import torch.nn as nn
-
+import torch
 from core.pinn.collocation import create_piecewise_collocation, create_uniform_collocation
-from core.pinn.registry import get_variant
-from core.utils.logger import make_printing_log_fn, print_header
-from experiment.configs.schema import ExperimentConfig, ParamModelContext
-from core.pinn.pinn_architecture import ParamModel
+from core.utils.logger import log_fn, make_history, print_header
+from experiment.configs.schema import ExperimentConfig
+from core.pinn.pinn_architecture import ParamModel, PINN, FeedForwardNet, train_loop
+from core.utils.preprocessing import preprocess_data, to_torch
 
 
 def _build_collocation_grid(t_norm: np.ndarray, cfg: ExperimentConfig) -> np.ndarray:
-    """Return collocation points in normalized time from cfg.collocation_type."""
+    """Return collocation points in normalized time from cfg.param_model_type."""
     train = cfg.train
-    if cfg.collocation_type == "uniform":
+    if cfg.param_model_type == "constant" or cfg.param_model_type == "multi_sigmoid_cp":
         return create_uniform_collocation(train.n_colloc, t_norm)
-    if cfg.collocation_type == "piecewise":
+    if cfg.param_model_type == "segment":
         if cfg.segment_duration is None:
             raise ValueError("piecewise collocation requires cfg.segment_duration")
         return create_piecewise_collocation(
@@ -45,17 +44,13 @@ def _build_collocation_grid(t_norm: np.ndarray, cfg: ExperimentConfig) -> np.nda
             cfg.segment_duration,
             train.boundary_offset,
         )
-    raise ValueError(f"Unknown collocation_type: {cfg.collocation_type!r}")
-
+    raise ValueError(f"Unknown param_model_type: {cfg.param_model_type!r}")
 
 def build_and_train_pinn(
     t_np: np.ndarray,
     C_np: np.ndarray,
     cfg: ExperimentConfig,
     param_model: ParamModel,
-    *,
-    print_every: int = 500,
-    verbose: bool = True,
 ) -> dict[str, Any]:
     """
     Assemble and train one PINN on the given (t, C) slice.
@@ -66,22 +61,15 @@ def build_and_train_pinn(
         Time and CO₂ arrays, shape (N, 1). Sliced to the training window by the caller.
     cfg:
         Full experiment config — uses cfg.train, cfg.physics, cfg.param_model_type,
-        cfg.collocation_type. History/log wiring comes from registry via param_model_type.
-    print_every:
-        Terminal progress row interval.
-    verbose:
-        Print training header and rows.
 
     Returns
     -------
     dict with keys:
-        model, history, stats, t_np, C_np, t_col_np, t_norm, C_norm
+        model, history, stats, t_np, C_np, t_col_np
 
     """
-    variant = get_variant(cfg.param_model_type)
-
-    if verbose:
-        print_header(pinn_type=variant.pinn_type)
+    if cfg.train.verbose:
+        print_header()
 
     # data preprocessing
     preprocessed_data = preprocess_data(t_np, C_np)
@@ -109,23 +97,17 @@ def build_and_train_pinn(
     )
 
     # history and training
-    history = variant.history_factory()
+    history = make_history()
 
     train_loop(model, opt_net, opt_params, sched_net, sched_params,
                preprocessed_data["T_train"], preprocessed_data["C_train"], T_col, 
                preprocessed_data["stats"],
-               cfg.train.epochs, cfg.train.warmup_epochs, cfg.train.lambda_phys, cfg.train.ramp_epochs,
-               history,
-               physics_kwargs={"V": cfg.physics.V, "C_out": cfg.physics.C_out},
-               log_fn=make_printing_log_fn(variant.log_fn, variant.pinn_type, print_every, verbose))
+               cfg.train, history, physics_kwargs={"V": cfg.physics.V, "C_out": cfg.physics.C_out})
 
     return {
     "model": model,
     "history": history,
-    "stats": preprocessed_data[stats],
-    "t_np": t_np,  
-    "C_np": C_np,
+    "estimates": model.param_model.get_final_estimates(),
+    "stats": preprocessed_data["stats"],
     "t_col_np": t_col_np,
-    "t_norm": preprocessed_data["t_norm"],
-    "C_norm": preprocessed_data["C_norm"],
 }

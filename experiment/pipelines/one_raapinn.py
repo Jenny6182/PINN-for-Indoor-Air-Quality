@@ -157,6 +157,14 @@ def raa_pipeline(
         output_path=str(run_dir / "raa_diagnostic.png"),
     )
 
+    print(result["history"].keys())
+
+    for k, v in result["history"].items():
+        try:
+            print(k, len(v))
+        except TypeError:
+            print(k, type(v))
+            
     plot_all_raa_training(
         stage2_results=[result],
         cfg=cfg,

@@ -59,55 +59,54 @@ def plot_predictions(ax, model, t_np, c_np, t_train_np, c_train_np,
     ax.legend(fontsize=9)
     ax.grid(alpha=0.3)
 
-
 def plot_pde_residual(ax, model, t_col_np, stats, cfg, segment_boundaries=None):
 
-    t_min  = stats["t_min"]
-    t_max  = stats["t_max"]
+    t_min = stats["t_min"]
+    t_max = stats["t_max"]
+
+    # ---------------------------------------------------------
+    # FIX: convert normalized → physical time for plotting
+    # ---------------------------------------------------------
+    t_col_np = np.asarray(t_col_np).reshape(-1, 1)
+    t_col_phys = t_col_np * (t_max - t_min) + t_min
 
     T_col_eval = torch.tensor(
-        normalize_with_stats(t_col_np, t_min, t_max), dtype=torch.float32, requires_grad=True
+        normalize_with_stats(t_col_np, t_min, t_max),
+        dtype=torch.float32,
+        requires_grad=True
     )
 
-    residual_eval = physics_residual(model, T_col_eval, stats, cfg.physics.V, cfg.physics.C_out)
-    res_np        = residual_eval.detach().numpy().flatten()
+    residual_eval = physics_residual(
+        model,
+        T_col_eval,
+        stats,
+        cfg.physics.V,
+        cfg.physics.C_out
+    )
 
-    ax.plot(t_col_np.flatten(), res_np, lw=1, color="#c0392b", alpha=0.8)
+    res_np = residual_eval.detach().numpy().flatten()
+
+    ax.plot(t_col_phys.flatten(), res_np, lw=1, color="#c0392b", alpha=0.8)
     ax.axhline(0, color="black", lw=0.8, ls="--")
-    ax.fill_between(t_col_np.flatten(), res_np, alpha=0.15, color="#c0392b")
+    ax.fill_between(t_col_phys.flatten(), res_np, alpha=0.15, color="#c0392b")
 
     if segment_boundaries is not None:
         for b in segment_boundaries:
             ax.axvline(b, color="gray", ls=":", lw=0.8, alpha=0.5)
 
     ax.set_xlabel("Time [h]")
-    ax.set_ylabel("PDE Residual (normalised)")
-    ax.set_title("Physics Residual  [should -> 0]")
+    ax.set_ylabel("PDE Residual (normalized)")
+    ax.set_title("Physics Residual [should → 0]")
     ax.grid(alpha=0.3)
 
-
-# ── simple PINN specific ──────────────────────────────────────────────────────
-
-def plot_scalar_convergence(ax, epochs_arr, history, key, true_val,
-                            label, ylabel, color):
-
-    values = np.array([
-        np.asarray(v).reshape(-1)[0] for v in history[key]
-    ])
-
-    ax.plot(
-        epochs_arr,
-        values,
-        lw=1.5,
-        color=color,
-        label=f"{label} estimated",
-    )
-
-    ax.axhline(true_val, color="black", ls="--", lw=1,
-               label=f"True {label} = {true_val:.3g}")
+def plot_param_convergence(ax, epochs_arr, history, key, ylabel, title):
+    """All segment values per epoch — for RAA Q/S per segment"""
+    param_hist = np.array([np.asarray(v).reshape(-1) for v in history[key]])
+    for i in range(param_hist.shape[1]):
+        ax.plot(epochs_arr, param_hist[:, i], lw=1.5, label=f"Segment {i+1}")
     ax.set_xlabel("Epoch")
     ax.set_ylabel(ylabel)
-    ax.set_title(f"Recovered {label} over Training")
+    ax.set_title(title)
     ax.legend(fontsize=9)
     ax.grid(alpha=0.3)
 
@@ -215,6 +214,41 @@ def plot_convergence(ax, epochs_arr, history, key, label, ylabel, color, true_va
     ax.set_title(label)
     ax.legend(fontsize=9)
     ax.grid(alpha=0.3)
+
+def plot_piecewise_params(ax_Q, ax_S, t_np,
+                          Q_true_np, S_true_np,
+                          changepoint_times, Q_values, S_values):
+    """Full piecewise Q(t) and S(t) step functions over the whole time range."""
+    t_flat = t_np.flatten()
+
+    Q_est_arr = np.zeros_like(t_flat)
+    S_est_arr = np.zeros_like(t_flat)
+
+    boundaries = [t_flat[0]] + list(changepoint_times) + [t_flat[-1]]
+    for i in range(len(Q_values)):
+        mask = (t_flat >= boundaries[i]) & (t_flat < boundaries[i + 1])
+        Q_est_arr[mask] = Q_values[i]
+        S_est_arr[mask] = S_values[i]
+
+    ax_Q.step(t_flat, Q_true_np, where="post", lw=2, color="#2980b9", label="Q true")
+    ax_Q.step(t_flat, Q_est_arr, where="post", lw=2, color="#e67e22", ls="--", label="Q estimated")
+    for tau in changepoint_times:
+        ax_Q.axvline(tau, color="#e74c3c", ls=":", lw=0.8, alpha=0.6)
+    ax_Q.set_xlabel("Time [h]")
+    ax_Q.set_ylabel("Q [m³/h]")
+    ax_Q.set_title("Estimated vs True Q(t)")
+    ax_Q.legend(fontsize=9)
+    ax_Q.grid(alpha=0.3)
+
+    ax_S.step(t_flat, S_true_np / 1e6, where="post", lw=2, color="#27ae60", label="S_vol true")
+    ax_S.step(t_flat, S_est_arr / 1e6, where="post", lw=2, color="#8e44ad", ls="--", label="S_vol estimated")
+    for tau in changepoint_times:
+        ax_S.axvline(tau, color="#e74c3c", ls=":", lw=0.8, alpha=0.6)
+    ax_S.set_xlabel("Time [h]")
+    ax_S.set_ylabel("S_vol [m³ CO₂/h]")
+    ax_S.set_title("Estimated vs True S(t)")
+    ax_S.legend(fontsize=9)
+    ax_S.grid(alpha=0.3)
 
 
 # Assemblers
@@ -350,6 +384,101 @@ def plot_all_varying(
     fig.suptitle(f"{cfg.name} — Varying PINN", fontsize=13, y=1.01)
     _save(fig, output_path)
 
+def plot_all_raa_training(
+    stage2_results: list[dict],
+    cfg:            ExperimentConfig,
+    output_path:    str = "raa_training_diagnostics.png",
+):
+    if not stage2_results:
+        return
+
+    result = stage2_results[0]
+
+    history = result["history"]
+    epochs_arr = np.arange(1, cfg.train.epochs + 1)
+
+    # infer number of segments safely
+    n_segments = len(history["Q"][0]) if len(history["Q"]) > 0 else 1
+
+    fig = plt.figure(figsize=(12, 4 * n_segments))
+    gs = gridspec.GridSpec(n_segments, 2, figure=fig, hspace=0.55, wspace=0.35)
+
+    for i in range(n_segments):
+
+        label = f"Segment {i + 1}"
+
+        # Q convergence (ALL segments are already plotted inside function)
+        ax_Q = fig.add_subplot(gs[i, 0])
+        plot_param_convergence(
+            ax_Q,
+            epochs_arr,
+            history,
+            key="Q",
+            ylabel="Q [m³/h]",
+            title=f"Q — {label}",
+        )
+
+        # S convergence
+        ax_S = fig.add_subplot(gs[i, 1])
+        plot_param_convergence(
+            ax_S,
+            epochs_arr,
+            history,
+            key="S",
+            ylabel="S [ppm·m³/h]",
+            title=f"S — {label}",
+        )
+
+    fig.suptitle(
+        f"{cfg.name} — RAA-PINN Parameter Convergence",
+        fontsize=13,
+        y=1.01,
+    )
+
+    _save(fig, output_path)
+
+
+def _save(fig, output_path):
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, dpi=130, bbox_inches="tight")
+    print(f"Saved -> {out}")
+    plt.close(fig)
+
+class GridLayout:
+    """
+    Safe wrapper around GridSpec that prevents unused rows / index misalignment.
+    """
+
+    def __init__(self, fig, nrows: int, ncols: int = 2, hspace=0.5, wspace=0.35):
+        import matplotlib.gridspec as gridspec
+
+        self.fig = fig
+        self.gs = gridspec.GridSpec(
+            nrows, ncols,
+            figure=fig,
+            hspace=hspace,
+            wspace=wspace
+        )
+
+        self.row = 0
+        self.nrows = nrows
+
+    def next_ax(self, span_cols: bool = True):
+        """
+        Get next axis safely. Advances row automatically.
+        """
+        if self.row >= self.nrows:
+            raise IndexError(f"GridLayout overflow: only {self.nrows} rows allocated")
+
+        if span_cols:
+            ax = self.fig.add_subplot(self.gs[self.row, :])
+        else:
+            ax = self.fig.add_subplot(self.gs[self.row, 0])
+
+        self.row += 1
+        return ax
+    
 
 def plot_all_raa(
     stage1_result:  dict,
@@ -359,65 +488,83 @@ def plot_all_raa(
     true_vals:      TrueValues | None = None,
     output_path:    str = "raa_diagnostics.png",
 ):
-    t_np = data["t_np"]
-    c_np = data["c_np"]
+    if not stage2_results:
+        return
 
-    # extract changepoint times and Q/S from estimates
-    results_sorted    = sorted(stage2_results, key=lambda r: r["estimates"]["taus"][0])
-    changepoint_times = [r["estimates"]["taus"][0] for r in results_sorted]
-    Q_values          = [results_sorted[0]["estimates"]["Q"][0]] + [r["estimates"]["Q"][1] for r in results_sorted]
-    S_values          = [results_sorted[0]["estimates"]["S"][0]] + [r["estimates"]["S"][1] for r in results_sorted]
+    result = stage2_results[0]
 
-    fig = plt.figure(figsize=(14, 14))
-    gs  = gridspec.GridSpec(3, 2, figure=fig, hspace=0.5, wspace=0.35)
+    model     = result["model"]
+    history   = result["history"]
+    stats     = result["stats"]
+    t_col_np  = result["t_col_np"]
 
-    ax_scores = fig.add_subplot(gs[0, :])
-    plot_stage1_scores(ax_scores, stage1_result["t_np"],
-                       stage1_result["scores"], stage1_result["peak_indices"])
+    t_np       = data["t_np"]
+    c_np       = data["c_np"]
+    t_train_np = data["t_train_np"]
+    c_train_np = data["c_train_np"]
 
-    ax_Q = fig.add_subplot(gs[1, :])
-    ax_S = fig.add_subplot(gs[2, :])
+    estimates = result["estimates"]
+
+    changepoint_times = np.array(estimates["taus"]).flatten() if estimates["taus"] is not None else []
+    Q_values = estimates["Q"]
+    S_values = estimates["S"]
+
+    epochs_arr = np.arange(1, cfg.train.epochs + 1)
+
+    # =========================================================
+    # FIX: use CLEAN single-column layout (no GridSpec bugs)
+    # =========================================================
+    fig, axes = plt.subplots(6, 1, figsize=(15, 24), constrained_layout=True)
+
+    ax_loss, ax_stage1, ax_Q, ax_S, ax_pred, ax_res = axes
+
+    # 1. Loss
+    plot_loss_curves(ax_loss, epochs_arr, history, cfg.train.warmup_epochs)
+
+    # 2. Stage I
+    plot_stage1_scores(
+        ax_stage1,
+        stage1_result["t_np"],
+        stage1_result["scores"],
+        stage1_result["peak_indices"],
+    )
+
+    # 3. Q / S
     plot_piecewise_params(
-        ax_Q, ax_S, t_np,
-        Q_true_np=np.array(true_vals.Q) if (true_vals and true_vals.Q is not None) else np.zeros(len(t_np)),
-        S_true_np=np.array(true_vals.S) if (true_vals and true_vals.S is not None) else np.zeros(len(t_np)),
+        ax_Q,
+        ax_S,
+        t_np,
+        Q_true_np=np.array(true_vals.Q) if (true_vals and true_vals.Q is not None)
+        else np.zeros(len(t_np)),
+        S_true_np=np.array(true_vals.S) if (true_vals and true_vals.S is not None)
+        else np.zeros(len(t_np)),
         changepoint_times=changepoint_times,
         Q_values=Q_values,
         S_values=S_values,
     )
 
-    fig.suptitle(f"{cfg.name} — RAA-PINN", fontsize=13, y=1.01)
-    _save(fig, output_path)
+    # 4. Prediction
+    plot_predictions(
+        ax_pred,
+        model,
+        t_np,
+        c_np,
+        t_train_np,
+        c_train_np,
+        stats,
+        show_analytical=False,
+    )
 
+    # 5. PDE residual
+    plot_pde_residual(
+        ax_res,
+        model,
+        t_col_np,
+        stats,
+        cfg,
+        segment_boundaries=changepoint_times,
+    )
 
-def plot_all_raa_training(
-    stage2_results: list[dict],
-    cfg:            ExperimentConfig,
-    output_path:    str = "raa_training_diagnostics.png",
-):
-    if not stage2_results:
-        return
+    fig.suptitle(f"{cfg.name} — RAA-PINN", fontsize=13)
 
-    n          = len(stage2_results)
-    fig        = plt.figure(figsize=(14, 4 * n))
-    gs         = gridspec.GridSpec(n, 3, figure=fig, hspace=0.55, wspace=0.35)
-
-    for i, result in enumerate(stage2_results):
-        history    = result["history"]
-        epochs_arr = np.arange(1, cfg.train.epochs + 1)
-        label      = f"Changepoint {i + 1}"
-
-        ax_loss = fig.add_subplot(gs[i, 0])
-        plot_loss_curves(ax_loss, epochs_arr, history, cfg.train.warmup_epochs)
-        ax_loss.set_title(f"Losses — {label}")
-
-        ax_Q = fig.add_subplot(gs[i, 1])
-        plot_param_convergence(ax_Q, epochs_arr, history,
-                               key="Q", ylabel="Q [m³/h]", title=f"Q — {label}")
-
-        ax_S = fig.add_subplot(gs[i, 2])
-        plot_param_convergence(ax_S, epochs_arr, history,
-                               key="S", ylabel="S [ppm·m³/h]", title=f"S — {label}")
-
-    fig.suptitle(f"{cfg.name} — RAA-PINN Stage II Training", fontsize=13, y=1.01)
     _save(fig, output_path)

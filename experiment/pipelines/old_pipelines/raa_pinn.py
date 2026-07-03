@@ -11,8 +11,12 @@ cfg.stage2_mode switches param_model_type via preset:
 from __future__ import annotations
 from typing import Any
 from experiment.configs.schema import ExperimentConfig, ParamModelContext
-from experiment.pipelines.one_stage2 import run_one_stage2
+from experiment.pipelines.old_pipelines.one_stage2 import run_one_stage2
 from core.utils.preprocessing import prepare_training_data
+from core.scan.window_sweeping import stage1_scan, find_candidate_intervals
+from core.pinn.factory import build_param_model
+from core.utils.plotting import plot_all_raa, plot_one_raa_training
+from pathlib import Path
 
 
 def _extract_stage2_results(result: dict) -> list[dict]:
@@ -61,8 +65,8 @@ def run(cfg: ExperimentConfig) -> dict[str, Any]:
     Q_true_np = data["Q_true_np"]   # whatever key prepare_training_data uses
     S_true_np = data["S_true_np"]
     
-    scores = stage1_scan(t_np, C_np, V, C_out, 20, 1.5)
-    peak_indices, intervals = find_candidate_intervals(t_np, scores, prominence, distance, margin_h)
+    scores = stage1_scan(t_np, C_np, cfg.physics.V, cfg.physics.C_out, 20, 1.5)
+    peak_indices, intervals = find_candidate_intervals(t_np, scores, cfg.stage1.prominence, cfg.stage1.distance, cfg.stage1.margin_h)
 
     t_min = float(t_np.min())
     t_max = float(t_np.max())
@@ -81,13 +85,13 @@ def run(cfg: ExperimentConfig) -> dict[str, Any]:
         stage2_results=stage2_results,
         Q_true_np=Q_true_np,
         S_true_np=S_true_np,
-        output_path=output_path,
+        output_path=cfg.output_path,
     )
 
     plot_one_raa_training(
         stage2_results=results,
-        warmup_epochs=WARMUP_EPOCHS_S2,
-        output_path=run_dir / "raa_stage2_training.png",
+        warmup_epochs=cfg.train.epochs,
+        output_path=Path(cfg.output_path) / "raa_stage2_training.png",
     )
 
     return results

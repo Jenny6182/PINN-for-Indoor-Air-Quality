@@ -91,29 +91,22 @@ def load_dataset(path):
     """Load dataset with X, Y tensors from path"""
     return torch.load(path)
 
-def prepare_training_data(path, x_col="t_hours", y_col="C_meas_ppm", extra_cols=None, test_size=0.2, seed=42):
+def prepare_training_data(path, x_col="t_hours", y_col="C_meas_ppm", test_size=0.2, seed=42):
     """
-    Full preprocessing pipeline. Returns everything needed to start training.
-    extra_cols: list of additional column names to load (e.g. ["Q_true", "S_true"])
+    Load and split data. Returns everything needed to start training.
     """
-    # load raw data
     x, y = load_csv(path, x_col, y_col)
-
-    # load extra columns if requested (e.g. ground truth Q and S for piecewise case)
-    extras = load_columns(path, extra_cols)
-
-    # split dataset bc stats must be computed from training set only
     x_train, x_test, y_train, y_test = split_data(x, y, test_size, seed)
+    stats = compute_stats(x_train, y_train)
 
     return {
-        "t_np": x, # full raw time array, for plotting
-        "c_np": y, # full raw C array, for plotting
-        "t_train_np": x_train, # raw training time, for collocation point creation
-        "c_train_np": y_train, # raw training C
-        "t_test_np": x_test,
-        "c_test_np": y_test,
-        "stats": stats, # t_min, t_max, c_mean, c_std
-        **extras, # Q_true_np, S_true_np if requested
+        "t_np":       x,
+        "c_np":       y,
+        "t_train_np": x_train,
+        "c_train_np": y_train,
+        "t_test_np":  x_test,
+        "c_test_np":  y_test,
+        "stats":      stats,
     }
 
 
@@ -146,3 +139,7 @@ def extract_interval(t, C, t_left, t_right):
 
     return t_interval, C_interval
 
+
+def to_torch(x, requires_grad=False):
+    """Given numpy array x, return tensor X"""
+    return torch.tensor(x, dtype=torch.float32, requires_grad=requires_grad)

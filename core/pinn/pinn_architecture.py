@@ -287,7 +287,7 @@ def train_loop(model, opt_net, opt_params, sched_net, sched_params,
         # call logging function to add to history dict
         log_fn(model, history, loss, loss_data, loss_phys)
 
-        print_row()
+        print_row(epoch, history)
 
     return history
 

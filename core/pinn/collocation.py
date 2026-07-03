@@ -11,11 +11,6 @@ def create_uniform_collocation(n_colloc, x):
     # return np array, and reshaped into (number of points, 1), with type float
 
 
-def to_torch(x, requires_grad=False):
-    """Given numpy array x, return tensor X"""
-    return torch.tensor(x, dtype=torch.float32, requires_grad=requires_grad)
-
-
 def create_piecewise_collocation(n_colloc, x, segment_duration, boundary_offset):
     """
     Uniform grid plus extra points around each segment boundary,

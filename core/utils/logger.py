@@ -61,3 +61,9 @@ def print_row(epoch, history):
     if taus is not None:
         print(f"  taus = {taus}")
     print()
+
+def save_history(history, path):
+    import json
+    serializable = {k: [x.tolist() if hasattr(x, "tolist") else x for x in v] for k, v in history.items()}
+    with open(path, "w") as f:
+        json.dump(serializable, f, indent=2)

@@ -1,0 +1,20 @@
+{
+  "dataset": "data\\datasets\\validation_dataset\\iaq_varyQ_seg11_seed12.csv",
+  "run_name": "Easy_ensemble_10",
+  "mode": "Q",
+  "recon_mean_rel_err": 0.19391874190136782,
+  "recon_median_rel_err": 0.16518543539806865,
+  "recon_max_rel_err": 0.5320416292802825,
+  "recon_rmse": 63.41409460404441,
+  "cp_precision": 0.75,
+  "cp_recall": 0.9,
+  "cp_f1": 0.8181818181818182,
+  "cp_n_true": 10,
+  "cp_n_pred": 12,
+  "cp_count_error": 2,
+  "n_hidden": 3,
+  "hidden_dim": 64,
+  "warmup_epochs": 1500,
+  "ramp_epochs": 1100,
+  "stage1_sigma": 6.177938360791919
+}

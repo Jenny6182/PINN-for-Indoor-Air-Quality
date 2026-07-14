@@ -1,0 +1,4 @@
+Best score: -0.2034
+Best params: {'hidden_dim': 64, 'lr_net': 0.0039314657977675685, 'lr_params': 1.1229029692286944e-05, 'warmup_epochs': 1500, 'ramp_epochs': 1100, 'lambda_phys': 9.32102526150741, 'kappa': 75.03986940162258, 'n_colloc': 800}
+Importances: {'lr_params': np.float64(0.3803509048643594), 'hidden_dim': np.float64(0.323610090162594), 'warmup_epochs': np.float64(0.06375309352663054), 'lr_net': np.float64(0.062269122619240065), 'ramp_epochs': np.float64(0.05386394827849145), 'lambda_phys': np.float64(0.050979667824947374), 'kappa': np.float64(0.04209800325008436), 'n_colloc': np.float64(0.02307516947365298)}
+Search subset used: [np.str_('iaq_varyQ_seg5_seed77'), np.str_('iaq_varyQ_seg13_seed96'), np.str_('iaq_varyQ_seg14_seed71'), np.str_('iaq_varyQ_seg11_seed12'), np.str_('iaq_varyQ_seg9_seed92')]

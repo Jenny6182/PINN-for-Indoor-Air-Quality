@@ -1,0 +1,3 @@
+Best score: 0.6737
+Best params: {'sigma': 5.651766809083607, 'prominence_factor': 0.0040882721638954185, 'window_size': 24, 'distance': 21, 'margin_h': 0.221546256224959}
+Importances: {'prominence_factor': np.float64(0.5927903335912453), 'distance': np.float64(0.15734338789367383), 'margin_h': np.float64(0.1265945189403143), 'sigma': np.float64(0.08147969299684028), 'window_size': np.float64(0.0417920665779263)}

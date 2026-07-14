@@ -3,9 +3,7 @@ Default configurations for RAA-PINN pipelines.
 """
 
 import numpy as np
-
 from pathlib import Path
-
 from experiment.configs.schema import DataConfig, ExperimentConfig, Stage1Config, TrainConfig
 
 
@@ -20,7 +18,7 @@ def default_raa_config(
     log_Q_init: float | None = None,
     log_S_init: float | None = None,
 ) -> ExperimentConfig:
-    """Return default ExperimentConfig for RAA-PINN (one_pinn mode)."""
+    """Return final tuned ExperimentConfig for RAA-PINN."""
     return ExperimentConfig(
         name="raa_pinn",
         run_dir=Path(run_dir),
@@ -31,15 +29,19 @@ def default_raa_config(
             y_col="C_meas_ppm",
         ),
         train=TrainConfig(
-            n_hidden=2,
-            hidden_dim=32,
-            n_colloc=1000,
-            epochs=3000,
-            warmup_epochs=200,
-            ramp_epochs=500,
+            n_hidden=3,
+            hidden_dim=64,
+            n_colloc=800,
+            lr_net=0.0039314657977675685,
+            lr_params=1.1229029692286944e-05,
+            epochs=8000,                
+            warmup_epochs=1500,
+            ramp_epochs=1100,
+            lambda_phys=9.32102526150741,
+            kappa=75.03986940162258,
             log_Q_init=log_Q_init if log_Q_init is not None else float(np.log(200.0)),
             log_S_init=log_S_init if log_S_init is not None else float(np.log(1e5)),
         ),
-        stage1=Stage1Config(),
+        stage1=Stage1Config(), # get default value from schema.py
     )
 

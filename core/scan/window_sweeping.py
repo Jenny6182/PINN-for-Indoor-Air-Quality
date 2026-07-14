@@ -21,46 +21,26 @@ from numpy.linalg import lstsq
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import find_peaks
 
-
 def stage1_scan(t: np.ndarray, C_meas: np.ndarray, V: float, C_out: float, window_size: int=20, sigma: float=1.5):
-    """
-    Slide a window across the time series, fit Q and S by least squares
-    on each window, and record the ODE residual as the score
+    t = t.flatten().astype(np.float64)
+    C_meas = C_meas.flatten().astype(np.float64)
 
-    Special params
-    window_size: int   — number of points per window (must be > 2)
-    sigma: float — Gaussian smoothing sigma applied before differentiation.
-                Higher sigma = smoother derivative but 
-                Reduce to 0.5–1.0 if peaks are weak
-
-    Return
-    scores : np.ndarray, shape (N,), how inconsistent at each timepoint. 
-             NaN at the first and last window_size//2 points
-             because a full window cannot be centered there
-    """
-    t = t.flatten().astype(np.float64) # flatten to 1D
-    C_meas = C_meas.flatten().astype(np.float64) # flatten to 1D
-
-    C_smooth = gaussian_filter1d(C_meas, sigma=sigma) # smooth C with gaussian filter before differentiation 
-    dC_dt = np.gradient(C_smooth, t) # estimate dC/dt via np.gradient on the smoothed signal
+    C_smooth = gaussian_filter1d(C_meas, sigma=sigma)
+    dC_dt = np.gradient(C_smooth, t)
 
     n = len(t)
-    half = window_size // 2 # starting center point of first window
-    scores = np.full(n, np.nan) # create output array of length of t, initialized to nan
+    half_lo = window_size // 2
+    half_hi = window_size - half_lo   # handles odd window_size correctly
+    scores = np.full(n, np.nan)
 
-    # Calculate score at each window centered around i
-    for i in range(half, n - half): # from the first center point to last center point
-        C_win = C_smooth[i-half : i+half] # window of C
-        dCdt_win = dC_dt[i-half : i+half]
+    for i in range(half_lo, n - half_hi):
+        C_win = C_smooth[i-half_lo : i+half_hi]
+        dCdt_win = dC_dt[i-half_lo : i+half_hi]
 
-        # Q(C_out - C) + S = V * dC/dt, rewrite as Ax = b so x = [Q, S] and A = [C_out - C, 1]
         A = np.column_stack([C_out - C_win, np.ones(window_size)])
         b = V * dCdt_win
 
-        # least squares — finds best single Q and S for this window
-        params, _, _, _ = lstsq(A, b, rcond=None) # use scipy least square method to solve for best possible Q, S
-
-        # score = mean squared ODE violation after best fit
+        params, _, _, _ = lstsq(A, b, rcond=None)
         scores[i] = np.mean((A @ params - b) ** 2)
 
     return scores

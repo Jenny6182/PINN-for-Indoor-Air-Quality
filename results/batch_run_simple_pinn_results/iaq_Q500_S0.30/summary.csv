@@ -1,2 +1,0 @@
-file,Q_true,S_vol_true,S_true,Q_est,S_est,S_vol_est,final_loss_total,final_loss_data,final_loss_phys
-iaq_Q500_S0.30.csv,500.0,0.3,300000.0,484.278,290344.4062,0.290344,0.065549,0.065162,6.621514

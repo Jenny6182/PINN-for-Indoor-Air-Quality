@@ -1,0 +1,20 @@
+{
+  "dataset": "data\\datasets\\validation_dataset\\iaq_varyQ_seg5_seed77.csv",
+  "run_name": "iaq_varyQ_seg5_seed77",
+  "mode": "Q",
+  "recon_mean_rel_err": 0.3601008033564119,
+  "recon_median_rel_err": 0.39078194172121594,
+  "recon_max_rel_err": 0.5729882443020954,
+  "recon_rmse": 178.81198124678104,
+  "cp_precision": 0.3,
+  "cp_recall": 0.75,
+  "cp_f1": 0.4285714285714285,
+  "cp_n_true": 4,
+  "cp_n_pred": 10,
+  "cp_count_error": 6,
+  "n_hidden": 3,
+  "hidden_dim": 64,
+  "warmup_epochs": 1500,
+  "ramp_epochs": 1100,
+  "stage1_sigma": 6.177938360791919
+}

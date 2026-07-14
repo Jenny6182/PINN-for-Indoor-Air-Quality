@@ -1,4 +1,0 @@
-path,Q_init,S_init,tau,Q_minus,Q_plus,S_minus,S_plus
-./data/datasets/varying_pinn_datasets/varying_Q.csv,800,300000.0,0.2728668,652.617,30.489773,93253.695,6755.1978
-./data/datasets/varying_pinn_datasets/varying_Q.csv,800,300000.0,4.0224924,30.489773,79.248856,6755.1978,77106.22
-./data/datasets/varying_pinn_datasets/varying_Q.csv,800,300000.0,4.3657336,79.248856,41.494125,77106.22,8988.065

@@ -1,13 +1,7 @@
 """
-pipelines.py
+one_raapinn.py
 ------------
-Top-level pipelines for each PINN variant.
-
-Usage:
-    from experiment.pipelines import raa_pipeline
-    
-    cfg = ExperimentConfig(...)
-    results = raa_pipeline(cfg, true_vals=TrueValues(...))
+Top-level pipeline used for raapinn variant
 """
 
 from __future__ import annotations
@@ -15,6 +9,11 @@ from __future__ import annotations
 import numpy as np
 import torch
 from pathlib import Path
+import pandas as pd
+import json
+from core.utils.truth import load_truth_from_csv
+from core.utils.evaluation import reconstruction_error, changepoint_metrics 
+from core.utils.logger import save_history
 
 from core.pinn.factory import build_param_model
 from core.pinn.trainer import build_and_train_pinn
@@ -22,7 +21,6 @@ from core.scan.window_sweeping import stage1_scan, find_candidate_intervals, fin
 from core.utils.preprocessing import prepare_training_data
 from core.utils.plotting import plot_all_raa, plot_all_raa_training
 from experiment.configs.schema import ExperimentConfig, ParamModelContext, TrueValues
-
 
 def raa_pipeline(
     cfg:         ExperimentConfig,
@@ -33,9 +31,9 @@ def raa_pipeline(
 
     Steps:
         1. Load data
-        2. Stage I — sliding window scan to detect changepoints
+        2. Stage I - sliding window scan to detect changepoints
         3. Build param model with detected changepoints as initial taus
-        4. Stage II — train one PINN with MultiSigmoidChangepoint
+        4. Stage II - train one PINN with MultiSigmoidChangepoint
         5. Plot results
 
     Returns
@@ -62,13 +60,25 @@ def raa_pipeline(
         seed=cfg.data.seed,
     )
 
+    # pull truth columns from the same file
+    df_full = pd.read_csv(cfg.data.dataset_path)
+
+    if true_vals is None:
+        true_vals = TrueValues(
+            Q=df_full["Q_true"].values,
+            S=df_full["S_true"].values,
+        )
+        
+    mode = "Q" if df_full["Q_true"].nunique() > 1 else "S"  # auto-detect which one varies
+    truth = load_truth_from_csv(df_full, mode)
+
     t_np      = data["t_np"]
     C_meas_np = data["c_np"]
 
     print(f"Loaded {len(t_np)} timepoints "
           f"(t = {t_np.min():.2f}h to {t_np.max():.2f}h)")
 
-    # --- stage I ---
+    # --- stage 1 ---
     print("\n--- Stage I: Sliding Window Scan ---")
 
     scores = stage1_scan(
@@ -108,7 +118,7 @@ def raa_pipeline(
         print("No changepoints detected. Try lowering prominence or distance in stage1 config.")
         return {}
 
-    # --- stage II ---
+    # --- stage 2 ---
     print("\n--- Stage II: Joint Refinement (One PINN) ---")
 
     tau_inits = [float(t_flat[i]) for i in peak_indices]
@@ -122,7 +132,8 @@ def raa_pipeline(
     )
 
     param_model = build_param_model(cfg, ctx)
-    result      = build_and_train_pinn(data["t_train_np"], data["c_train_np"], cfg, param_model)
+    result = build_and_train_pinn(data["t_train_np"], data["c_train_np"], cfg, param_model)
+    save_history(result["history"], run_dir / "history.json")
 
     stage1_result = {
         "t_np":         t_np,
@@ -136,6 +147,7 @@ def raa_pipeline(
     taus      = estimates["taus"]
     Q_seg     = estimates["Q"]
     S_seg     = estimates["S"]
+    # print(type(taus), type(Q_seg))
 
     print(f"\n{'='*60}")
     print(f"Summary: {len(taus)} changepoints detected and refined")
@@ -146,6 +158,32 @@ def raa_pipeline(
     for i, tau in enumerate(taus):
         print(f"  {i+1:>3}  {tau:>8.3f}  {Q_seg[i]:>10.1f}  {Q_seg[i+1]:>10.1f}  "
               f"{S_seg[i]:>12.2e}  {S_seg[i+1]:>12.2e}")
+    
+    # --- metrics ---
+    pred_values = Q_seg if mode == "Q" else S_seg
+    recon = reconstruction_error(truth["t"], truth["param_true"], taus, pred_values, t_min, t_max)
+    cp    = changepoint_metrics(truth["true_taus"], taus)
+
+    metrics = {
+        "dataset": str(cfg.data.dataset_path),
+        "run_name": cfg.name,
+        "mode": mode,
+        **{f"recon_{k}": v for k, v in recon.items()},
+        **{f"cp_{k}": v for k, v in cp.items()},
+        "n_hidden": cfg.train.n_hidden,
+        "hidden_dim": cfg.train.hidden_dim,
+        "warmup_epochs": cfg.train.warmup_epochs,
+        "ramp_epochs": cfg.train.ramp_epochs,
+        "stage1_sigma": cfg.stage1.sigma,
+    }
+
+    with open(run_dir / "metrics.json", "w") as f:
+        json.dump(metrics, f, indent=2)
+
+    master_path = Path("results/summary.csv")
+    master_path.parent.mkdir(parents=True, exist_ok=True)
+    row = pd.DataFrame([metrics])
+    row.to_csv(master_path, mode="a", header=not master_path.exists(), index=False)
 
     # --- plots ---
     plot_all_raa(

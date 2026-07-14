@@ -33,6 +33,16 @@ def make_step_func(values, seg_dur, n_seg):
         return float(values[min(int(t / seg_dur), n_seg - 1)])
     return f
 
+def make_variable_step_func(vals, boundaries):
+    """Creates a step function using custom time boundaries."""
+    def step_func(t):
+        # Find which segment 't' falls into
+        idx = np.searchsorted(boundaries, t, side='right') - 1
+        # Prevent index out of bounds at the exact final timestamp
+        idx = np.clip(idx, 0, len(vals) - 1)
+        return vals[idx]
+    return step_func
+
 def save_csv(df, path: Path):
     df.to_csv(path, index=False)
 

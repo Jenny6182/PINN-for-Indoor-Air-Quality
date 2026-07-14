@@ -1,0 +1,20 @@
+{
+  "dataset": "data/datasets/validation_dataset/iaq_varyQ_seg5_seed57.csv",
+  "run_name": "raa_pinn",
+  "mode": "Q",
+  "recon_mean_rel_err": 0.36457335095775417,
+  "recon_median_rel_err": 0.348503069992989,
+  "recon_max_rel_err": 0.9147145873627814,
+  "recon_rmse": 152.62633182100694,
+  "cp_precision": 0.21428571428571427,
+  "cp_recall": 0.75,
+  "cp_f1": 0.3333333333333333,
+  "cp_n_true": 4,
+  "cp_n_pred": 14,
+  "cp_count_error": 10,
+  "n_hidden": 4,
+  "hidden_dim": 64,
+  "warmup_epochs": 700,
+  "ramp_epochs": 1000,
+  "stage1_sigma": 1.5
+}

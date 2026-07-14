@@ -43,33 +43,32 @@ class TrainConfig:
     """Hyperparameters shared by all PINN training variants."""
     n_hidden: int = 3
     hidden_dim: int = 64
-    n_colloc: int = 1000
-    lr_net: float = 3e-3
-    lr_params: float = 1e-2
+    n_colloc: int = 800
+    lr_net: float = 0.0039314657977675685
+    lr_params: float = 1.1229029692286944e-05
     min_lr_net: float = 1e-5
     min_lr_params: float = 1e-3
     epochs: int = 8000
-    warmup_epochs: int = 500
-    lambda_phys: float = 1.0
-    ramp_epochs: int = 2000
-    log_Q_init: float = field(default_factory=lambda: float(np.log(1.0)))
-    log_S_init: float = field(default_factory=lambda: float(np.log(1.0)))
-    kappa: float = 50.0
+    warmup_epochs: int = 1500
+    lambda_phys: float = 9.32102526150741
+    ramp_epochs: int = 1100
+    log_Q_init: float = field(default_factory=lambda: float(np.log(200.0)))
+    log_S_init: float = field(default_factory=lambda: float(np.log(1e5)))
+    kappa: float = 75.03986940162258
     seed: int = 42
     boundary_offset: float = 0.02   # piecewise collocation only
     print_every: int = 500
     verbose: bool = True
 
-
 @dataclass
 class Stage1Config:
     """RAA Stage I sliding-window scan parameters (no neural network)."""
-    window_size: int = 20
-    sigma: float = 1.5
+    window_size: int = 25
+    sigma: float = 6.177938360791919
     prominence: float | None = None
-    prominence_factor: float = 0.15
-    distance: int = 20
-    margin_h: float = 0.4
+    prominence_factor: float = 0.007477744737290231
+    distance: int = 24
+    margin_h: float = 0.5695784403542213
     k: int | None = None
 
     

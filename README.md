@@ -8,11 +8,9 @@ The primary objective is to recover the ventilation rate (**Q**) and CO₂ sourc
 
 ## Problem
 
-Indoor CO₂ concentration is modeled using the single-zone mass balance equation
+Indoor CO₂ concentration is modeled the single-zone mass balance equation (ODE):
 
-\[
-V\frac{dC}{dt}=Q(C_{out}-C)+S
-\]
+    V dC/dt = Q (C_out - C) + S
 
 where
 
@@ -25,6 +23,12 @@ where
 Given only measurements of **C(t)**, the goal is to estimate the unknown physical parameters.
 
 Recovering both **Q** and **S** is challenging because they are partially coupled (an identifiability issue), making this an inverse problem rather than a straightforward regression task.
+
+Analytical solution for each segment is:
+
+    C(t) = C_ss + (C0 - C_ss) exp(-Qt/V)
+    C_ss = C_out + S/Q
+    tau  = V/Q
 
 ---
 

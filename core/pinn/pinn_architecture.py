@@ -315,39 +315,3 @@ def physics_residual(model, T_col, stats, V, C_out):
 
 
 
-# class SigmoidChangepoint(ParamModel):
-#     """Sigmoid changepoint parameter model assumes Q and S are no longer step functions, instead, they are sigmoid functions
-#     that are differentiable. This is typically paired with RAA-PINN. This model adds 4 trainable scalars log parametrized,
-#     which is used for each run of RAA-PINN stage 2 in individual segments.
-
-#     Model guesses a changepoint tau between [t_left, t_right], and the left side value and right side value of Q, S
-    
-#     It looks at one small interval and try to optimize for these 4 parameters:
-#     Q_minus - the ventilation rate during [t_left, tau] (estimate of Q on the left side of changepoint)
-#     Q_plus - the ventilation rate during [tau, t_right] (estimate of Q on the right side of changepoint)
-#     similarly for S."""
-#     def __init__(self, t_left, t_right, log_Q_init, log_S_init, kappa=50.0):
-#         super().__init__()
-#         self.t_left = t_left # left boundary of time interval
-#         self.t_right = t_right # right boundary of time interval
-#         self.kappa = kappa # how sharp the transition is between before and after value
-
-#         self.log_Q_minus = nn.Parameter(torch.tensor(log_Q_init, dtype=torch.float32))
-#         self.log_Q_plus  = nn.Parameter(torch.tensor(log_Q_init, dtype=torch.float32))
-#         self.log_S_minus = nn.Parameter(torch.tensor(log_S_init, dtype=torch.float32))
-#         self.log_S_plus  = nn.Parameter(torch.tensor(log_S_init, dtype=torch.float32))
-#         # eta = 0, starts at midpoint of the time interval, it's the percentage of where the changepoint is in the interval
-#         self.eta = nn.Parameter(torch.tensor(0.0, dtype=torch.float32))
-
-#     @property
-#     def tau(self): # method to get tau calculated and returned
-#         # constrain changepoint to stay within interval [t_left, t_right]
-#         return self.t_left + (self.t_right - self.t_left) * torch.sigmoid(self.eta)
-
-#     def get_Q_S(self, t_phys):
-#         gate  = torch.sigmoid(self.kappa * (t_phys - self.tau)) 
-#         # create sigmoid function that slides Q to left/right of tau
-#         Q = torch.exp(self.log_Q_minus) * (1 - gate) + torch.exp(self.log_Q_plus) * gate
-#         S = torch.exp(self.log_S_minus) * (1 - gate) + torch.exp(self.log_S_plus) * gate
-#         return Q, S
-#         # return tensors that represent vectors, (N, 1), Q and S

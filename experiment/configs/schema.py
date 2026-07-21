@@ -27,7 +27,7 @@ from pathlib import Path
 import numpy as np
 
 # Supported values — used by registry and factory (not enforced at runtime yet)
-PARAM_MODEL_TYPES = ("constant", "segment", "multi_sigmoid_cp")
+PARAM_MODEL_TYPES = ("constant", "segment", "multi_sigmoid_cp", "const_sigmoid_cp")
 
 
 @dataclass
@@ -59,6 +59,7 @@ class TrainConfig:
     boundary_offset: float = 0.02   # piecewise collocation only
     print_every: int = 500
     verbose: bool = True
+    vary_param: str = "Q"   # only used by const_sigmoid_cp; "Q" or "S"
 
 @dataclass
 class Stage1Config:

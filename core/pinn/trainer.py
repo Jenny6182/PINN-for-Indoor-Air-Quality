@@ -29,11 +29,12 @@ from experiment.configs.schema import ExperimentConfig
 from core.pinn.pinn_architecture import ParamModel, PINN, FeedForwardNet, train_loop
 from core.utils.preprocessing import preprocess_data, to_torch
 
+uniform_collocation_types = ["constant", "multi_sigmoid_cp", "const_sigmoid_cp"]
 
 def _build_collocation_grid(t_norm: np.ndarray, cfg: ExperimentConfig) -> np.ndarray:
     """Return collocation points in normalized time from cfg.param_model_type."""
     train = cfg.train
-    if cfg.param_model_type == "constant" or cfg.param_model_type == "multi_sigmoid_cp":
+    if cfg.param_model_type in uniform_collocation_types:
         return create_uniform_collocation(train.n_colloc, t_norm)
     if cfg.param_model_type == "segment":
         if cfg.segment_duration is None:

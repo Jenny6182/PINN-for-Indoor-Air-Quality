@@ -145,6 +145,55 @@ class SegmentParams(ParamModel):
             "taus": None
         }
 
+class ConstrainedSegmentParams(ParamModel):
+    """
+    Like SegmentParams, but one of Q or S is assumed to be a single shared
+    constant across all segments, while the other still varies segment-to-segment.
+    """
+    def __init__(self, n_segments, log_Q_init, log_S_init, segment_duration, vary_param="Q"):
+        super().__init__()
+        assert vary_param in ("Q", "S")
+        self.vary_param = vary_param
+        self.n_segments = n_segments
+        self.segment_duration = segment_duration
+
+        if vary_param == "Q":
+            self.log_Q = nn.Parameter(
+                torch.full((n_segments,), log_Q_init, dtype=torch.float32)
+            )
+            self.log_S_const = nn.Parameter(torch.tensor(log_S_init, dtype=torch.float32))  # ONE scalar
+        else:
+            self.log_S = nn.Parameter(
+                torch.full((n_segments,), log_S_init, dtype=torch.float32)
+            )
+            self.log_Q_const = nn.Parameter(torch.tensor(log_Q_init, dtype=torch.float32))  # ONE scalar
+
+    def _seg_idx(self, t_phys):
+        return torch.clamp(
+            (t_phys / self.segment_duration).long(), 0, self.n_segments - 1
+        ).squeeze(1)
+
+    def get_Q_S(self, t_phys):
+        seg_idx = self._seg_idx(t_phys)
+        if self.vary_param == "Q":
+            Q = torch.exp(self.log_Q)[seg_idx].unsqueeze(1)
+            S = torch.exp(self.log_S_const).expand(t_phys.shape[0], 1)
+        else:
+            S = torch.exp(self.log_S)[seg_idx].unsqueeze(1)
+            Q = torch.exp(self.log_Q_const).expand(t_phys.shape[0], 1)
+        return Q, S
+
+    def get_final_estimates(self) -> dict:
+        # repeat the constant to length n_segments so Q/S come back the same
+        # shape as the varying one — downstream code (plotting, pipeline
+        # summary printing, reconstruction_error) doesn't need special-casing
+        if self.vary_param == "Q":
+            Q_vals = torch.exp(self.log_Q).detach().numpy()
+            S_vals = np.repeat(torch.exp(self.log_S_const).detach().numpy(), self.n_segments)
+        else:
+            S_vals = torch.exp(self.log_S).detach().numpy()
+            Q_vals = np.repeat(torch.exp(self.log_Q_const).detach().numpy(), self.n_segments)
+        return {"Q": Q_vals, "S": S_vals, "taus": None}
 
 
 class MultiSigmoidChangepoint(ParamModel):
@@ -212,6 +261,75 @@ class MultiSigmoidChangepoint(ParamModel):
             "taus": self.taus.detach().numpy() 
         }
     
+class ConstrainedSigmoidChangepoint(ParamModel):
+    """
+    Like MultiSigmoidChangepoint, but one of Q or S is assumed to be a single
+    shared constant across the whole domain, while the other still varies
+    piecewise via sigmoid changepoints.
+    """
+    def __init__(self, t_min, t_max, tau_inits, log_Q_init, log_S_init,
+                 vary_param="Q", kappa=50.0):
+        super().__init__()
+        assert vary_param in ("Q", "S")
+        self.vary_param = vary_param
+        self.t_min = t_min
+        self.t_max = t_max
+        self.kappa = kappa
+        K = len(tau_inits)
+        self.tau_inits = tau_inits
+
+        eta_inits = [np.log((tau - t_min) / (t_max - tau + 1e-8)) for tau in tau_inits]
+        self.etas = nn.ParameterList([
+            nn.Parameter(torch.tensor(e, dtype=torch.float32)) for e in eta_inits
+        ])
+
+        if vary_param == "Q":
+            self.log_Q = nn.ParameterList([
+                nn.Parameter(torch.tensor(log_Q_init, dtype=torch.float32))
+                for _ in range(K + 1)
+            ])
+            self.log_S_const = nn.Parameter(torch.tensor(log_S_init, dtype=torch.float32))  # ONE scalar
+        else:
+            self.log_S = nn.ParameterList([
+                nn.Parameter(torch.tensor(log_S_init, dtype=torch.float32))
+                for _ in range(K + 1)
+            ])
+            self.log_Q_const = nn.Parameter(torch.tensor(log_Q_init, dtype=torch.float32))  # ONE scalar
+
+    @property
+    def taus(self):
+        return torch.stack([
+            self.t_min + (self.t_max - self.t_min) * torch.sigmoid(eta)
+            for eta in self.etas
+        ])
+
+    def _varying(self, t_phys, log_vals):
+        taus = self.taus
+        vals = torch.stack([torch.exp(lv) for lv in log_vals])
+        gates = torch.sigmoid(self.kappa * (t_phys - taus.unsqueeze(0)))
+        dv = vals[1:] - vals[:-1]
+        return vals[0] + (gates * dv).sum(dim=1, keepdim=True)
+
+    def get_Q_S(self, t_phys):
+        if self.vary_param == "Q":
+            Q = self._varying(t_phys, self.log_Q)
+            S = torch.exp(self.log_S_const).expand(t_phys.shape[0], 1)
+        else:
+            S = self._varying(t_phys, self.log_S)
+            Q = torch.exp(self.log_Q_const).expand(t_phys.shape[0], 1)
+        return Q, S
+
+    def get_final_estimates(self) -> dict:
+        K1 = len(self.etas) + 1
+        if self.vary_param == "Q":
+            Q_vals = torch.stack(list(self.log_Q)).exp().detach().numpy()
+            S_vals = np.repeat(torch.exp(self.log_S_const).detach().numpy(), K1)
+        else:
+            S_vals = torch.stack(list(self.log_S)).exp().detach().numpy()
+            Q_vals = np.repeat(torch.exp(self.log_Q_const).detach().numpy(), K1)
+        return {"Q": Q_vals, "S": S_vals, "taus": self.taus.detach().numpy()}
+
+
 
 def train_loop(model, opt_net, opt_params, sched_net, sched_params,
                T_train, C_train, T_col, stats, 

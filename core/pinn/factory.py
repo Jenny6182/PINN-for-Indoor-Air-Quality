@@ -12,6 +12,7 @@ from __future__ import annotations
 from core.pinn.pinn_architecture import (
     ConstantParams,
     MultiSigmoidChangepoint,
+    ConstrainedSigmoidChangepoint,
     SegmentParams,
     ParamModel
 )
@@ -64,6 +65,25 @@ def build_param_model(cfg: ExperimentConfig, ctx: ParamModelContext) -> ParamMod
             tau_inits=ctx.tau_inits,
             log_Q_init=train.log_Q_init,
             log_S_init=train.log_S_init,
+            kappa=train.kappa,
+        )
+
+    if cfg.param_model_type == "const_sigmoid_cp":
+        if ctx.t_min is None or ctx.t_max is None or not ctx.tau_inits:
+            raise ValueError(
+                "const_sigmoid_cp requires ctx.t_min, ctx.t_max, and ctx.tau_inits"
+            )
+        if train.vary_param not in ("Q", "S"):
+            raise ValueError(
+                f"const_sigmoid_cp requires train.vary_param in ('Q','S'), got {train.vary_param!r}"
+            )
+        return ConstrainedSigmoidChangepoint(
+            t_min=ctx.t_min,
+            t_max=ctx.t_max,
+            tau_inits=ctx.tau_inits,
+            log_Q_init=train.log_Q_init,
+            log_S_init=train.log_S_init,
+            vary_param=train.vary_param,
             kappa=train.kappa,
         )
 

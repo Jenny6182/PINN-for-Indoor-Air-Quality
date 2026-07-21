@@ -72,6 +72,14 @@ def raa_pipeline(
     mode = "Q" if df_full["Q_true"].nunique() > 1 else "S"  # auto-detect which one varies
     truth = load_truth_from_csv(df_full, mode)
 
+    if cfg.param_model_type == "const_sigmoid_cp":
+        assert cfg.train.vary_param == mode, (
+            f"train.vary_param={cfg.train.vary_param!r} doesn't match "
+            f"detected dataset mode={mode!r}"
+        )
+
+    print(f"{mode} changing mode is detected!" )
+
     t_np      = data["t_np"]
     C_meas_np = data["c_np"]
 

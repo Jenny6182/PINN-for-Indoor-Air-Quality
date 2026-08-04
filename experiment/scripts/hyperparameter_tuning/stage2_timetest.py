@@ -1,5 +1,5 @@
 import time
-from stage2_optuna import run_one, PRELOADED, SUBSET_NAMES
+from experiment.scripts.hyperparameter_tuning.stage2_optuna import run_one, PRELOADED, SUBSET_NAMES
 from experiment.configs.schema import TrainConfig
 import numpy as np
 

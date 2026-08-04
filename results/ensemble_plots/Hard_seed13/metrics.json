@@ -1,0 +1,20 @@
+{
+  "dataset": "data\\datasets\\validation_dataset\\iaq_varyQ_seg8_seed51.csv",
+  "run_name": "Hard_ensemble_13",
+  "mode": "Q",
+  "recon_mean_rel_err": 0.48210520537318924,
+  "recon_median_rel_err": 0.4561219247366296,
+  "recon_max_rel_err": 0.7402945815179699,
+  "recon_rmse": 317.56879424037174,
+  "cp_precision": 0.4444444444444444,
+  "cp_recall": 0.5714285714285714,
+  "cp_f1": 0.5,
+  "cp_n_true": 7,
+  "cp_n_pred": 9,
+  "cp_count_error": 2,
+  "n_hidden": 3,
+  "hidden_dim": 64,
+  "warmup_epochs": 1500,
+  "ramp_epochs": 1100,
+  "stage1_sigma": 6.177938360791919
+}

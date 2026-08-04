@@ -56,3 +56,24 @@ def _build_segment(start_idx, end_idx, steady) -> Segment:
     #     transient_idx = list(range(start_idx, end_idx + 1))
 
     # return Segment(start_idx, end_idx, transient_idx, steady_idx)
+
+def build_true_segments(boundaries, steady):
+    segments = []
+
+    for start, end in zip(boundaries[:-1], boundaries[1:]):
+        segments.append(
+            Segment(
+                start_idx=start,
+                end_idx=end,
+                transient_idx=[
+                    i for i in range(start, end + 1)
+                    if not steady[i]
+                ],
+                steady_idx=[
+                    i for i in range(start, end + 1)
+                    if steady[i]
+                ],
+            )
+        )
+
+    return segments

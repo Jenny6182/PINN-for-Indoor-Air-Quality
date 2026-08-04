@@ -1,0 +1,5 @@
+dataset,run_name,truth_type,vary_param,method,recon_Q_error,recon_S_error,cp_precision,cp_recall,cp_f1,cp_n_true,cp_n_pred,cp_count_error,stage1_sigma,n_segments,n_steady_points_total
+data/datasets/batch_run_simple_datasets/iaq_Q100_S0.30.csv,raa_pinn_constrained,constant,Q,steady_state_algebraic,100.0,101.97537082895003,0.0,0.0,0.0,0,11,11,6.177938360791919,12,15
+data/datasets/batch_run_simple_datasets/iaq_Q100_S0.30.csv,raa_pinn_constrained,constant,Q,steady_state_algebraic,100.0,101.97537082895003,0.0,0.0,0.0,0,11,11,6.177938360791919,12,15
+data/datasets/batch_run_simple_datasets/iaq_Q100_S0.30.csv,raa_pinn_constrained,constant,Q,steady_state_algebraic,100.0,101.97537082895003,0.0,0.0,0.0,0,11,11,6.177938360791919,12,15
+data/datasets/batch_run_simple_datasets/iaq_Q100_S0.30.csv,raa_pinn_constrained,constant,Q,steady_state_algebraic,100.0,101.97537082895003,0.0,0.0,0.0,0,11,11,6.177938360791919,12,15

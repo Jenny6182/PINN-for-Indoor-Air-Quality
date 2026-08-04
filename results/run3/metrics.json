@@ -1,0 +1,18 @@
+{
+  "dataset": "data/datasets/batch_run_simple_datasets/iaq_Q100_S0.30.csv",
+  "run_name": "raa_pinn_constrained",
+  "truth_type": "constant",
+  "vary_param": "Q",
+  "method": "steady_state_algebraic",
+  "recon_Q_error": 100.0,
+  "recon_S_error": 101.97537082895003,
+  "cp_precision": 0.0,
+  "cp_recall": 0.0,
+  "cp_f1": 0.0,
+  "cp_n_true": 0,
+  "cp_n_pred": 11,
+  "cp_count_error": 11,
+  "stage1_sigma": 6.177938360791919,
+  "n_segments": 12,
+  "n_steady_points_total": 15
+}

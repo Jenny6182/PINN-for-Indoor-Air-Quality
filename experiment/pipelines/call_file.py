@@ -1,4 +1,4 @@
-from experiment.configs.presets.raa import default_raa_config
+from experiment.configs.presets.const_ra import constrained_raa_config
 from experiment.configs.schema import TrueValues
 import pandas as pd
 from experiment.pipelines.one_raapinn import raa_pipeline
@@ -6,7 +6,7 @@ from experiment.pipelines.one_raapinn import raa_pipeline
 
 if __name__ == "__main__":
     print("Training Started")
-    cfg = default_raa_config(run_dir="results/run1", dataset_path="data/datasets/validation_dataset/iaq_varyQ_seg5_seed57.csv")
+    cfg = constrained_raa_config(run_dir="results/run3", dataset_path="data/datasets/validation_dataset/iaq_varyQ_seg5_seed57.csv")
     print("Obtained config successfully")
 
     print("Now printing config...")

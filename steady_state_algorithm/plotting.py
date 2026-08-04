@@ -292,3 +292,38 @@ def plot_true_vs_estimated_with_error(result):
 
     plt.tight_layout()
     plt.show()
+
+
+def plot_stage_comparison(t, C, stages, true_change_times=None):
+    """
+    Compare steady/transient boolean labels across multiple pipeline
+    stages, stacked vertically, sharing the same time axis.
+
+    stages: dict of {stage_name: steady_boolean_array}, e.g.
+        {
+            "raw t-stat (pre-filter)": raw_transient_as_steady_bool,
+            "label_steady_significance_v2": steady,
+            "after cut_segments/refine": steady_from_segments,
+        }
+    true_change_times: optional list of true changepoint times to
+        overlay as vertical reference lines on every stage
+    """
+    n = len(stages)
+    fig, axes = plt.subplots(n, 1, figsize=(14, 3 * n), sharex=True)
+    if n == 1:
+        axes = [axes]
+
+    for ax, (name, steady) in zip(axes, stages.items()):
+        ax.plot(t, C, color="gray", alpha=0.4, linewidth=1)
+        ax.scatter(t[steady], C[steady], s=10, color="orange", label="steady")
+        ax.scatter(t[~steady], C[~steady], s=10, color="blue", label="transient")
+        if true_change_times is not None:
+            for xi in true_change_times:
+                ax.axvline(xi, color="black", linestyle="--", alpha=0.4)
+        ax.set_title(name)
+        ax.legend(loc="upper right", fontsize=8)
+        ax.grid(alpha=0.3)
+
+    axes[-1].set_xlabel("Time (hours)")
+    plt.tight_layout()
+    plt.show()

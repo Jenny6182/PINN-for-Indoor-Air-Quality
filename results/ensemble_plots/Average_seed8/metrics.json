@@ -1,0 +1,20 @@
+{
+  "dataset": "data\\datasets\\validation_dataset\\iaq_varyQ_seg10_seed64.csv",
+  "run_name": "Average_ensemble_8",
+  "mode": "Q",
+  "recon_mean_rel_err": 0.3677689762503611,
+  "recon_median_rel_err": 0.3324624879935094,
+  "recon_max_rel_err": 0.5085229668427722,
+  "recon_rmse": 161.84489187952323,
+  "cp_precision": 0.7,
+  "cp_recall": 0.7777777777777778,
+  "cp_f1": 0.7368421052631577,
+  "cp_n_true": 9,
+  "cp_n_pred": 10,
+  "cp_count_error": 1,
+  "n_hidden": 3,
+  "hidden_dim": 64,
+  "warmup_epochs": 1500,
+  "ramp_epochs": 1100,
+  "stage1_sigma": 6.177938360791919
+}

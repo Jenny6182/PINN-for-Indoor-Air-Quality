@@ -145,55 +145,6 @@ class SegmentParams(ParamModel):
             "taus": None
         }
 
-class ConstrainedSegmentParams(ParamModel):
-    """
-    Like SegmentParams, but one of Q or S is assumed to be a single shared
-    constant across all segments, while the other still varies segment-to-segment.
-    """
-    def __init__(self, n_segments, log_Q_init, log_S_init, segment_duration, vary_param="Q"):
-        super().__init__()
-        assert vary_param in ("Q", "S")
-        self.vary_param = vary_param
-        self.n_segments = n_segments
-        self.segment_duration = segment_duration
-
-        if vary_param == "Q":
-            self.log_Q = nn.Parameter(
-                torch.full((n_segments,), log_Q_init, dtype=torch.float32)
-            )
-            self.log_S_const = nn.Parameter(torch.tensor(log_S_init, dtype=torch.float32))  # ONE scalar
-        else:
-            self.log_S = nn.Parameter(
-                torch.full((n_segments,), log_S_init, dtype=torch.float32)
-            )
-            self.log_Q_const = nn.Parameter(torch.tensor(log_Q_init, dtype=torch.float32))  # ONE scalar
-
-    def _seg_idx(self, t_phys):
-        return torch.clamp(
-            (t_phys / self.segment_duration).long(), 0, self.n_segments - 1
-        ).squeeze(1)
-
-    def get_Q_S(self, t_phys):
-        seg_idx = self._seg_idx(t_phys)
-        if self.vary_param == "Q":
-            Q = torch.exp(self.log_Q)[seg_idx].unsqueeze(1)
-            S = torch.exp(self.log_S_const).expand(t_phys.shape[0], 1)
-        else:
-            S = torch.exp(self.log_S)[seg_idx].unsqueeze(1)
-            Q = torch.exp(self.log_Q_const).expand(t_phys.shape[0], 1)
-        return Q, S
-
-    def get_final_estimates(self) -> dict:
-        # repeat the constant to length n_segments so Q/S come back the same
-        # shape as the varying one — downstream code (plotting, pipeline
-        # summary printing, reconstruction_error) doesn't need special-casing
-        if self.vary_param == "Q":
-            Q_vals = torch.exp(self.log_Q).detach().numpy()
-            S_vals = np.repeat(torch.exp(self.log_S_const).detach().numpy(), self.n_segments)
-        else:
-            S_vals = torch.exp(self.log_S).detach().numpy()
-            Q_vals = np.repeat(torch.exp(self.log_Q_const).detach().numpy(), self.n_segments)
-        return {"Q": Q_vals, "S": S_vals, "taus": None}
 
 
 class MultiSigmoidChangepoint(ParamModel):

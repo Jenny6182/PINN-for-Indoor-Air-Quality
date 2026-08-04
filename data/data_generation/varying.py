@@ -12,7 +12,7 @@ Analytical solution for each segment:
     tau  = V/Q
 """
 from dataclasses import dataclass, field
-from core_data_generator import *
+from data.data_generation.core_data_generator import *
 
 @dataclass
 class VaryingConfig:
@@ -27,7 +27,7 @@ class VaryingConfig:
     Q_const: float = 200.0 # used when mode="S"
     S_const: float = 0.10 # used when mode="Q"
     phys: PhysicalParams = field(default_factory=PhysicalParams)
-    out_dir: str = "datasets"
+    out_dir: str = "datasets/no_noise_dataset"
     save_csv: bool = True
     save_plot: bool = True
 
@@ -125,7 +125,8 @@ def run(cfg: VaryingConfig) -> dict:
 
     t = build_time_grid(cfg.phys)
     C_true = solve_ode(Q_func, S_func, t, cfg.phys)
-    C_meas = add_noise(C_true, cfg.phys.sigma_meas, cfg.noise_seed)
+    # C_meas = add_noise(C_true, cfg.phys.sigma_meas, cfg.noise_seed)
+    C_meas = C_true
 
     # evaluate schedules at every timestep for saving
     Q_arr = np.array([Q_func(ti) for ti in t])

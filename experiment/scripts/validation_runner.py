@@ -6,7 +6,7 @@ first so results don't accumulate across separate sweep runs.
 """
 from pathlib import Path
 import pandas as pd
-from experiment.configs.presets.raa import default_raa_config
+from experiment.configs.presets.const_ra import constrained_raa_config
 from experiment.pipelines.one_raapinn import raa_pipeline
 
 DATASET_DIR = Path("data/datasets/validation_dataset")  # wherever your 20 validation CSVs live
@@ -26,7 +26,7 @@ def main():
         )
 
     for csv_path in csvs:
-        cfg = default_raa_config(
+        cfg = constrained_raa_config(
             run_dir=f"results/{csv_path.stem}",
             dataset_path=str(csv_path),
         )

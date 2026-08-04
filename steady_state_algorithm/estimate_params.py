@@ -57,66 +57,140 @@ def estimate_css(t, C, steady_idx, fraction=0.2):
     return float(np.mean(C[plateau_idx]))
 
 
-def estimate_tau(t, C, transient_idx, Css):  # large tau version, problematic
-    """
-    Estimate tau (and refine Css) for one segment via nonlinear least
-    squares on C(t) directly (not the log-linearized form).
+# def estimate_tau(t, C, transient_idx, Css):  # original, works with noiseless data
+#     """
+#     Estimate tau (and refine Css) for one segment via nonlinear least
+#     squares on C(t) directly (not the log-linearized form).
 
-    Design notes:
-      - C0 is fixed to the first sample of the transient window (it's
-        known exactly from the data).
-      - Css is seeded from the plateau estimate as p0 and then fitted
-        with tau jointly
-      - Time is shifted to start at 0 (tt - tt[0]) so the fit is always
-        working in local segment time; this only affects numerical
-        conditioning, not the fitted tau itself.
-      - "transient_idx" is expected to be the full window between the
-        old and new steady regions after changepoint refinement.
+#     Design notes:
+#       - C0 is fixed to the first sample of the transient window (it's
+#         known exactly from the data).
+#       - Css is seeded from the plateau estimate as p0 and then fitted
+#         with tau jointly
+#       - Time is shifted to start at 0 (tt - tt[0]) so the fit is always
+#         working in local segment time; this only affects numerical
+#         conditioning, not the fitted tau itself.
+#       - "transient_idx" is expected to be the full window between the
+#         old and new steady regions after changepoint refinement.
 
-    Returns (tau, r2); (nan, nan) if the segment can't be fit.
-    """
+#     Returns (tau, r2); (nan, nan) if the segment can't be fit.
+#     """
+#     if len(transient_idx) < 2:
+#         return np.nan, np.nan
+
+#     tt = np.asarray(t)[transient_idx]
+#     tt = tt - tt[0]  # local time, starting at 0
+#     CC = np.asarray(C)[transient_idx]
+#     C0 = CC[0]  # known exactly, not fitted
+
+#     # plotting the data fed into estimate_tau: confirm the window handed to the fit
+#     # captures the decay shape you expect before trusting the fit result
+#     plt.figure(figsize=(6, 4))
+#     plt.plot(tt, CC, marker="o")
+#     plt.axhline(Css, linestyle="--", label="Css")
+#     plt.xlabel("time")
+#     plt.ylabel("CO2")
+#     plt.title("Data passed into estimate_tau")
+#     plt.legend()
+#     plt.grid()
+#     plt.show()
+
+#     def model(t, Css_fit, tau):
+#         return Css_fit + (C0 - Css_fit) * np.exp(-t / tau)
+
+#     p0 = [Css, 0.25]  # seed Css_fit with the plateau estimate, tau with a rough guess
+
+#     try:
+#         popt, pcov = curve_fit(model, tt, CC, p0=p0, maxfev=5000)
+#     except RuntimeError:
+#         return np.nan, np.nan
+
+#     Css_fit, tau = popt
+#     if tau <= 0:
+#         return np.nan, np.nan
+
+#     residuals = CC - model(tt, *popt)
+#     ss_res = np.sum(residuals**2)
+#     ss_tot = np.sum((CC - np.mean(CC))**2)
+#     r2 = 1 - ss_res / ss_tot if ss_tot > 0 else np.nan
+
+#     print("t range:", tt[0], tt[-1])
+#     print("C range:", CC[0], CC[-1])
+#     print("Css guess:", Css)
+
+#     return float(tau), float(r2)
+
+# def estimate_tau(t, C, transient_idx, Css): # experiment version for noisy data
+#     if len(transient_idx) < 2:
+#         return np.nan, np.nan, np.nan
+
+#     tt = np.asarray(t)[transient_idx]
+#     tt = tt - tt[0]
+#     CC = np.asarray(C)[transient_idx]
+#     C0 = CC[0]
+
+#     def model(t, Css_fit, tau):
+#         return Css_fit + (C0 - Css_fit) * np.exp(-t / tau)
+
+#     p0 = [Css, 0.25]
+
+#     dt = np.median(np.diff(tt)) if len(tt) > 1 else 1e-3
+#     span = tt[-1] - tt[0]
+#     tau_min = 2 * dt              # can't resolve a decay faster than ~2 samples
+#     tau_max = max(span * 5, 1.0)  # can't confidently extrapolate far past the observed window
+
+#     css_lo, css_hi = CC.min() - 0.5 * abs(CC.min()), CC.max() + 0.5 * abs(CC.max())
+
+#     try:
+#         popt, pcov = curve_fit(
+#             model, tt, CC, p0=p0, maxfev=5000,
+#             bounds=([css_lo, tau_min], [css_hi, tau_max]),
+#         )
+#     except RuntimeError:
+#         return np.nan, np.nan, np.nan
+
+#     Css_fit, tau = popt
+#     hit_bound = np.isclose(tau, tau_min, rtol=1e-3) or np.isclose(tau, tau_max, rtol=1e-3)
+#     if hit_bound:
+#         return np.nan, np.nan, np.nan  # flag as unidentifiable rather than trust a pinned value
+
+#     residuals = CC - model(tt, *popt)
+#     ss_res = np.sum(residuals ** 2)
+#     ss_tot = np.sum((CC - np.mean(CC)) ** 2)
+#     r2 = 1 - ss_res / ss_tot if ss_tot > 0 else np.nan
+
+#     return float(tau), float(r2), float(Css_fit)
+
+def estimate_tau(t, C, transient_idx, Css):
     if len(transient_idx) < 2:
         return np.nan, np.nan
 
     tt = np.asarray(t)[transient_idx]
-    tt = tt - tt[0]  # local time, starting at 0
+    tt = tt - tt[0]
     CC = np.asarray(C)[transient_idx]
-    C0 = CC[0]  # known exactly, not fitted
+    C0 = CC[0]
 
-    # plotting the data fed into estimate_tau: confirm the window handed to the fit
-    # captures the decay shape you expect before trusting the fit result
-    plt.figure(figsize=(6, 4))
-    plt.plot(tt, CC, marker="o")
-    plt.axhline(Css, linestyle="--", label="Css")
-    plt.xlabel("time")
-    plt.ylabel("CO2")
-    plt.title("Data passed into estimate_tau")
-    plt.legend()
-    plt.grid()
-    plt.show()
+    def model(t, tau):
+        return Css + (C0 - Css) * np.exp(-t / tau)
 
-    def model(t, Css_fit, tau):
-        return Css_fit + (C0 - Css_fit) * np.exp(-t / tau)
-
-    p0 = [Css, 0.25]  # seed Css_fit with the plateau estimate, tau with a rough guess
+    dt = np.median(np.diff(tt)) if len(tt) > 1 else 1e-3
+    span = tt[-1] - tt[0]
+    tau_min = 2 * dt
+    tau_max = max(span * 5, 1.0)
 
     try:
-        popt, pcov = curve_fit(model, tt, CC, p0=p0, maxfev=5000)
+        popt, pcov = curve_fit(model, tt, CC, p0=[0.25], bounds=([tau_min], [tau_max]), maxfev=5000)
     except RuntimeError:
         return np.nan, np.nan
 
-    Css_fit, tau = popt
-    if tau <= 0:
+    tau = popt[0]
+    if np.isclose(tau, tau_min, rtol=1e-3) or np.isclose(tau, tau_max, rtol=1e-3):
         return np.nan, np.nan
 
-    residuals = CC - model(tt, *popt)
+    residuals = CC - model(tt, tau)
     ss_res = np.sum(residuals**2)
     ss_tot = np.sum((CC - np.mean(CC))**2)
     r2 = 1 - ss_res / ss_tot if ss_tot > 0 else np.nan
-
-    print("t range:", tt[0], tt[-1])
-    print("C range:", CC[0], CC[-1])
-    print("Css guess:", Css)
 
     return float(tau), float(r2)
 
@@ -132,25 +206,51 @@ def get_full_transient_idx(seg):
     return np.arange(transient_start, transient_end + 1)
 
 
-def estimate_segment(t, C, seg, V, C_out):
-    """
-    Estimate Css, tau, Q, S (+ fit diagnostics) for a single segment,
-    and package the result as a SegmentEstimate.
-    """
-    Css = estimate_css(t, C, seg.steady_idx)
-    tau, r2 = estimate_tau(t, C, seg.transient_idx, Css)
+# def estimate_segment(t, C, seg, V, C_out): # original, works
+#     """
+#     Estimate Css, tau, Q, S (+ fit diagnostics) for a single segment,
+#     and package the result as a SegmentEstimate.
+#     """
+#     Css = estimate_css(t, C, seg.steady_idx)
+#     tau, r2 = estimate_tau(t, C, seg.transient_idx, Css)
 
-    Q = V / tau if tau and not np.isnan(tau) else np.nan
-    S = Q * (Css - C_out) if Q and not np.isnan(Q) and not np.isnan(Css) else np.nan
+#     Q = V / tau if tau and not np.isnan(tau) else np.nan
+#     S = Q * (Css - C_out) if Q and not np.isnan(Q) and not np.isnan(Css) else np.nan
 
-    return SegmentEstimate(
-        start_idx=seg.start_idx,
-        end_idx=seg.end_idx,
-        n_steady=len(seg.steady_idx),
-        n_transient=len(seg.transient_idx),
-        Css=Css,
-        tau=tau,
-        Q=Q,
-        S=S,
-        tau_fit_r2=r2,
-    )
+#     return SegmentEstimate(
+#         start_idx=seg.start_idx,
+#         end_idx=seg.end_idx,
+#         n_steady=len(seg.steady_idx),
+#         n_transient=len(seg.transient_idx),
+#         Css=Css,
+#         tau=tau,
+#         Q=Q,
+#         S=S,
+#         tau_fit_r2=r2,
+#     )
+
+# def estimate_segment(t, C, seg, V, C_out):
+#     """
+#     Estimate Css, tau, Q, S (+ fit diagnostics) for a single segment.
+#     """
+#     Css = estimate_css(t, C, seg.steady_idx)
+#     tau, r2 = estimate_tau(t, C, seg.transient_idx, Css)
+
+#     Q = V / tau if tau and not np.isnan(tau) else np.nan
+#     S = Q * (Css - C_out) if Q and not np.isnan(Q) and not np.isnan(Css) else np.nan
+
+#     return SegmentEstimate(
+#         start_idx=seg.start_idx,
+#         end_idx=seg.end_idx,
+#         n_steady=len(seg.steady_idx),
+#         n_transient=len(seg.transient_idx),
+#         Css=Css,
+#         tau=tau,
+#         Q=Q,
+#         S=S,
+#         tau_fit_r2=r2,
+#     )
+
+
+#Todo: take picture of current progress
+# try the new estimate segment use correct taus

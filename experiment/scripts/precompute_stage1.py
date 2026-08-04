@@ -17,6 +17,10 @@ from core.scan.window_sweeping import stage1_scan, find_candidate_intervals
 from core.utils.truth import load_truth_from_csv
 from core.utils.preprocessing import prepare_training_data
 from experiment.configs.schema import Stage1Config
+import matplotlib.pyplot as plt
+
+PLOT_DIR = Path("results/stage1_debug_plots")
+PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
 DATASET_DIR = Path("data/datasets/validation_dataset")
 CACHE_PATH = Path("results/stage1_cache.json")
@@ -54,6 +58,18 @@ def main():
         t_flat = t_np.flatten()
         tau_inits = [float(t_flat[i]) for i in peak_indices]
 
+        # plotting
+        fig, ax = plt.subplots()
+        ax.plot(t_flat, scores)
+        ax.scatter(t_flat[peak_indices], scores[peak_indices], color="red", zorder=5, label="detected")
+        for tt in truth["true_taus"]:
+            ax.axvline(tt, color="green", linestyle="--", alpha=0.6)
+        ax.set_title(f"{csv_path.stem}: {len(tau_inits)} detected vs {len(truth['true_taus'])} true")
+        ax.legend()
+        fig.savefig(PLOT_DIR / f"{csv_path.stem}.png")
+        plt.close(fig)
+
+        # cache entry
         cache[csv_path.stem] = {
             "dataset_path": str(csv_path),
             "mode": mode,

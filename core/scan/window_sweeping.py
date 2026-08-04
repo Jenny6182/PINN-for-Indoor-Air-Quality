@@ -42,6 +42,11 @@ def stage1_scan(t: np.ndarray, C_meas: np.ndarray, V: float, C_out: float, windo
 
         params, _, _, _ = lstsq(A, b, rcond=None)
         scores[i] = np.mean((A @ params - b) ** 2)
+    
+    # mask out boundary-contaminated scores (np.gradient edge artifact
+    # propagates window_size points inward)
+    scores[:window_size] = np.nan
+    scores[-window_size:] = np.nan
 
     return scores
 
@@ -64,12 +69,16 @@ def find_candidate_intervals(t, scores, prominence, distance, margin_h=0.3):
     """
     t_flat = t.flatten()
 
-    # replace nan with 0 so find_peaks doesn't skip edge regions
-    scores_clean = np.nan_to_num(scores, nan=0.0)
+    # only search for peaks among valid (non-NaN) scores, so masked
+    # boundary regions can't create artificial valleys/peaks
+    valid = ~np.isnan(scores)
+    valid_idx = np.where(valid)[0]
+    scores_valid = scores[valid]
 
-    peak_indices, _ = find_peaks(scores_clean,
-                                 prominence=prominence,
-                                 distance=distance) # use scipy find_peaks
+    peak_pos, _ = find_peaks(scores_valid,
+                              prominence=prominence,
+                              distance=distance) # use scipy find_peaks
+    peak_indices = valid_idx[peak_pos]  # map back to original indices
 
     intervals = []
     for idx in peak_indices:

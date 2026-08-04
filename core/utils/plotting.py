@@ -58,7 +58,7 @@ def plot_data_and_model(ax, model, t_np, c_np, t_train_np, c_train_np, stats):
     with torch.no_grad():
         pred = model(T).numpy() * c_std + c_mean
 
-    ax.scatter(t_np, c_np, s=6, alpha=0.3, color="#aaa", label="data")
+    ax.scatter(t_np, c_np, s=6, alpha=0.3, color="green", label="data")
     ax.scatter(t_train_np, c_train_np, s=8, alpha=0.5, color="#e74c3c", label="train")
     ax.plot(t_full, pred, lw=2, color="#2c3e50", label="model")
 
@@ -303,4 +303,97 @@ def plot_all_varying(result, data, cfg, true_vals=None, output_path="varying.png
                       segment_boundaries=est["taus"])
 
     fig.suptitle(f"{cfg.name} — Varying PINN", fontsize=13)
+    _save(fig, output_path)
+
+
+### Plotting for steady state algorithm
+def reconstruct_CO2_steady_state(t, Q, S, taus, C0, V, C_out):
+    """
+    Reconstruct CO2 trajectory from steady-state pipeline Q/S estimates.
+    Supports piecewise segments.
+    """
+
+    t = np.asarray(t)
+    Q = np.asarray(Q)
+    S = np.asarray(S)
+    taus = np.asarray(taus)
+
+    boundaries = np.concatenate(([t[0]], taus, [t[-1]]))
+
+    C_pred = np.zeros_like(t, dtype=float)
+    C_current = C0
+
+    for i in range(len(Q)):
+        mask = (t >= boundaries[i]) & (t <= boundaries[i + 1])
+
+        if not np.any(mask):
+            continue
+
+        t_seg = t[mask]
+
+        tau = V / Q[i]
+        C_ss = C_out + S[i] / Q[i]
+
+        C_seg = C_ss + (C_current - C_ss) * np.exp(
+            -(t_seg - t_seg[0]) / tau
+        )
+
+        C_pred[mask] = C_seg
+        C_current = C_seg[-1]
+
+    return C_pred
+
+def plot_steady_state_CO2(ax, t, C_meas, result, cfg):
+    """
+    Plot measured CO2 against reconstructed CO2.
+    """
+
+    ax.scatter(t, C_meas, s=8, alpha=0.4, label="Measured CO2")
+
+    C_pred = reconstruct_CO2_steady_state(
+        t,
+        result["Q"],
+        result["S"],
+        result.get("taus", []),
+        C_meas[0],
+        cfg.physics.V,
+        cfg.physics.C_out,
+    )
+
+    ax.plot(t, C_pred, linewidth=2, label="Estimated CO2")
+
+    style_ax(ax, "CO2 Reconstruction", "Time [h]", "CO2")
+
+def plot_steady_state_classification(ax, t, C, steady_mask):
+    ax.plot(t, C, lw=1.5, label="CO2")
+    ax.scatter(t[steady_mask], C[steady_mask], s=8, label="steady")
+    ax.scatter(t[~steady_mask], C[~steady_mask], s=8, label="transient")
+    style_ax(ax, "Steady/Transient Classification", "Time [h]", "CO2")
+
+
+def plot_steady_state_parameters(ax_Q, ax_S, result, truth=None):
+    n = len(result["Q"])
+    x = np.arange(n)
+
+    ax_Q.plot(x, result["Q"], marker="o", label="Estimated Q")
+    if truth is not None:
+        ax_Q.plot(x, truth["Q"], marker="x", ls="--", label="True Q")
+    style_ax(ax_Q, "Q Estimates", "Segment", "Q")
+
+    ax_S.plot(x, result["S"], marker="o", label="Estimated S")
+    if truth is not None:
+        ax_S.plot(x, truth["S"], marker="x", ls="--", label="True S")
+    style_ax(ax_S, "S Estimates", "Segment", "S")
+
+
+def plot_steady_state_results(result, data, cfg, steady_mask, truth=None, output_path="steady_state.png"):
+    t = data["t_np"].flatten()
+    C = data["c_np"].flatten()
+
+    fig, axes = plt.subplots(3, 1, figsize=(14, 12), constrained_layout=True)
+
+    plot_steady_state_classification(axes[0], t, C, steady_mask)
+    plot_steady_state_parameters(axes[1], axes[2], result, truth)
+
+    fig.suptitle(f"{cfg.name} — Steady State Pipeline", fontsize=13)
     _save(fig, output_path)

@@ -9,7 +9,7 @@ be visualized using scatter_plotter_only.py.
 import pandas as pd
 from pathlib import Path
 
-from experiment.configs.presets.raa import default_raa_config
+from experiment.configs.presets.const_ra import constrained_raa_config
 from experiment.pipelines.one_raapinn import raa_pipeline
 from experiment.configs.schema import TrueValues
 
@@ -46,7 +46,7 @@ def main():
 
             run_dir = OUT_DIR / f"{difficulty}_seed{seed}"
 
-            cfg = default_raa_config(
+            cfg = constrained_raa_config(
                 run_dir=str(run_dir),
                 dataset_path=str(csv_path)
             )

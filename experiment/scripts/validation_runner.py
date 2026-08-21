@@ -1,5 +1,5 @@
 """
-run_validation_suite.py
+validation_runner.py
 ------------------------
 Runs one fixed config against all validation datasets, resets summary.csv
 first so results don't accumulate across separate sweep runs.

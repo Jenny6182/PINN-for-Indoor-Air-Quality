@@ -1,0 +1,80 @@
+Running: Q_init=1, S_init=0.1, path=./data/datasets/varying_pinn_datasets/varying_S.csv
+RAA-PINN Pipeline
+File: ./data/datasets/varying_pinn_datasets/varying_S.csv
+============================================================
+
+Loaded 481 timepoints  (t = 0.00h to 8.00h)
+
+--- Stage I: Sliding Window Scan ---
+  window_size=20, sigma=1.5
+  Auto prominence = 3.774e+08 (15% of max score)
+
+  Detected 11 candidate changepoints:
+    [1] peak at t=0.500h  -> interval [0.100h, 0.900h]
+    [2] peak at t=0.933h  -> interval [0.533h, 1.333h]
+    [3] peak at t=1.483h  -> interval [1.083h, 1.883h]
+    [4] peak at t=2.400h  -> interval [2.000h, 2.800h]
+    [5] peak at t=2.950h  -> interval [2.550h, 3.350h]
+    [6] peak at t=4.000h  -> interval [3.600h, 4.400h]
+    [7] peak at t=4.533h  -> interval [4.133h, 4.933h]
+    [8] peak at t=5.083h  -> interval [4.683h, 5.483h]
+    [9] peak at t=5.533h  -> interval [5.133h, 5.933h]
+    [10] peak at t=6.483h  -> interval [6.083h, 6.883h]
+    [11] peak at t=7.800h  -> interval [7.400h, 8.000h]
+
+--- Stage II: Joint Refinement (One PINN) ---
+
+  Stage II — full time domain [0.000h, 8.000h]  (481 points) with 11 changepoints
+ Epoch        Loss        Data        Phys         tau(1st)        Q-        Q+          S-          S+
+---------------------------------------------------------------------------
+     1  1.1575e+00  1.1575e+00  0.0000e+00     0.500 (11cp)       1.0       1.0    1.00e-01    1.00e-01
+   500  2.8607e-01  1.9045e-01  1.0681e+01     0.032 (11cp)       0.2       0.1    8.43e-01    1.11e+01
+  1000  1.1040e-01  9.5678e-02  9.8670e-01     0.001 (11cp)       0.1       0.1    2.72e+04    4.71e+03
+  1500  9.5658e-02  8.8914e-02  4.5200e-01     0.003 (11cp)       0.1      29.3    3.83e+04    3.95e+04
+  2000  9.5004e-02  8.8195e-02  4.5635e-01     0.006 (11cp)       0.1      31.6    4.77e+04    4.64e+04
+  2500  9.4841e-02  8.8156e-02  4.4804e-01     0.041 (11cp)       0.1      31.1    4.49e+04    4.69e+04
+  3000  9.4774e-02  8.8132e-02  4.4517e-01     0.145 (11cp)       0.1      30.3    4.27e+04    4.67e+04
+
+  Result: 11 changepoints optimized
+    [1] tau=0.145h  Q: 0.1 -> 30.3  S: 4.273e+04 -> 4.669e+04
+    [2] tau=4.035h  Q: 30.3 -> 2.5  S: 4.669e+04 -> 1.345e-02
+    [3] tau=0.004h  Q: 2.5 -> 3.5  S: 1.345e-02 -> 4.708e+03
+    [4] tau=4.513h  Q: 3.5 -> 15.1  S: 4.708e+03 -> 8.552e-02
+    [5] tau=4.168h  Q: 15.1 -> 29.3  S: 8.552e-02 -> 7.680e-02
+    [6] tau=4.286h  Q: 29.3 -> 47.2  S: 7.680e-02 -> 4.948e-02
+    [7] tau=4.398h  Q: 47.2 -> 66.4  S: 4.948e-02 -> 1.596e-02
+    [8] tau=6.199h  Q: 66.4 -> 4.9  S: 1.596e-02 -> 7.963e-02
+    [9] tau=6.319h  Q: 4.9 -> 0.6  S: 7.963e-02 -> 3.265e+04
+    [10] tau=6.439h  Q: 0.6 -> 0.0  S: 3.265e+04 -> 6.029e+04
+    [11] tau=8.000h  Q: 0.0 -> 0.1  S: 6.029e+04 -> 5.846e+04
+
+============================================================
+Summary: 11 changepoints detected and refined
+============================================================
+    #   tau_est   Q_minus    Q_plus     S_minus      S_plus
+  ------------------------------------------------------------
+    1     0.145       0.1      30.3    4.27e+04    4.67e+04
+    2     4.035      30.3       2.5    4.67e+04    1.34e-02
+    3     0.004       2.5       3.5    1.34e-02    4.71e+03
+    4     4.513       3.5      15.1    4.71e+03    8.55e-02
+    5     4.168      15.1      29.3    8.55e-02    7.68e-02
+    6     4.286      29.3      47.2    7.68e-02    4.95e-02
+    7     4.398      47.2      66.4    4.95e-02    1.60e-02
+    8     6.199      66.4       4.9    1.60e-02    7.96e-02
+    9     6.319       4.9       0.6    7.96e-02    3.26e+04
+   10     6.439       0.6       0.0    3.26e+04    6.03e+04
+   11     8.000       0.0       0.1    6.03e+04    5.85e+04
+
+  True Q at each detected changepoint:
+    [1] tau=0.145h  Q_true before=200.0  Q_true after=200.0  |  estimated Q-=0.1  Q+=30.3
+    [2] tau=4.035h  Q_true before=200.0  Q_true after=200.0  |  estimated Q-=30.3  Q+=2.5
+    [3] tau=0.004h  Q_true before=200.0  Q_true after=200.0  |  estimated Q-=2.5  Q+=3.5
+    [4] tau=4.513h  Q_true before=200.0  Q_true after=200.0  |  estimated Q-=3.5  Q+=15.1
+    [5] tau=4.168h  Q_true before=200.0  Q_true after=200.0  |  estimated Q-=15.1  Q+=29.3
+    [6] tau=4.286h  Q_true before=200.0  Q_true after=200.0  |  estimated Q-=29.3  Q+=47.2
+    [7] tau=4.398h  Q_true before=200.0  Q_true after=200.0  |  estimated Q-=47.2  Q+=66.4
+    [8] tau=6.199h  Q_true before=200.0  Q_true after=200.0  |  estimated Q-=66.4  Q+=4.9
+    [9] tau=6.319h  Q_true before=200.0  Q_true after=200.0  |  estimated Q-=4.9  Q+=0.6
+    [10] tau=6.439h  Q_true before=200.0  Q_true after=200.0  |  estimated Q-=0.6  Q+=0.0
+    [11] tau=8.000h  Q_true before=200.0  Q_true after=200.0  |  estimated Q-=0.0  Q+=0.1
+Saved -> results\sensitivity_analysis\varying_S_Q1_S0.1\raa_diagnostic.png

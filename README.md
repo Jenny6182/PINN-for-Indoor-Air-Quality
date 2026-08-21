@@ -42,7 +42,7 @@ Assumes both **Q** and **S** remain constant throughout the entire time series.
 
 Assumes one or both parameters are piecewise constant with **known** segment boundaries.
 
-### RAA-PINN
+### Residual Attention RA-PINN
 
 Assumes the parameter changepoints are unknown.
 
@@ -62,15 +62,31 @@ A physics-informed neural network is initialized using the Stage 1 changepoints 
 
 by minimizing both data loss and physics residual loss.
 
+### Non-PINN Algorithmic Framework
+
+Assumes the parameter changepoints are unknown.
+
+The framework consists of two stages:
+
+**Stage 1 – Segmentation**
+
+The CO₂ concentration derivative is smoothed and used to identify steady and transient regions. Initial segments are constructed from these labels, and the detected changepoints are refined using the rising edge of the transient derivative.
+
+**Stage 2 – Parameter Estimation**
+
+Each segment is analyzed using the analytical solution of the single-zone CO₂ mass-balance model. The steady-state concentration (C_{ss}) and time constant (\tau) are estimated from the steady and transient portions of the segment, respectively, and used to recover ventilation rate (Q) and source rate (S).
+
+
+
 ---
 
 ## Repository Structure
 
 ```
 core/
-    pinn/              # PINN models, trainer, parameter models
-    scan/              # Stage 1 changepoint detection
-    utils/             # preprocessing, plotting, evaluation, logging
+    pinn/              # PINN models, trainer, parameter models, factory, collocation creation
+    scan/              # Stage 1 changepoint detection for RA-PINN
+    utils/             # preprocessing, plotting, evaluation, logging, truth reconstruction
 
 experiment/
     configs/           # experiment configuration dataclasses
@@ -82,7 +98,9 @@ data/
     data_generation/   # synthetic dataset generation
     datasets/          # generated datasets
 
-results/               # experiment outputs
+results/               # various experiment outputs
+
+tests/                 # preliminary tests to verify initial pipelines run
 ```
 
 ---

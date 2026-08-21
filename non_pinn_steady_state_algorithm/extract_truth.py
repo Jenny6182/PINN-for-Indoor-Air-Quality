@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 
 # this is for plotting and analysis purpose
+# uses ground-truth Q/S columns to identify
+# the true segment boundaries for comparison with detected segments.
 
 def find_true_segments(
     csv_path,

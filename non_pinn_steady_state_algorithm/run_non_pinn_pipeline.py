@@ -29,7 +29,7 @@ def refine_changepoints(t, C, segments, fraction=0.5):
     reaches 'fraction' of its peak value within that segment's
     transient region, and moves the segment's start there. 
     
-    After moving the boundary, points are reclassified into
+    After moving the boundary, points are relabelled into
     "transient" (from the new start until the derivative drops back
     below the median for that segment) and "steady" (everything else,
     including the old pre-refinement tail).
@@ -62,10 +62,7 @@ def refine_changepoints(t, C, segments, fraction=0.5):
 
         seg.start_idx = new_idx
 
-        # points before the refined changepoint belong to the previous
-        # segment's steady tail, but stay in this segment's index lists
-        # for visualization purposes
-        old_steady_tail = list(range(old_idx, new_idx))
+        steady_tail = list(range(old_idx, new_idx))
 
         # resplit [new_idx, seg.end_idx] into transient vs. steady:
         # transient runs until the derivative drops below the median
@@ -78,7 +75,7 @@ def refine_changepoints(t, C, segments, fraction=0.5):
                 break
 
         seg.transient_idx = list(range(new_idx, steady_start))
-        seg.steady_idx = old_steady_tail + list(range(steady_start, seg.end_idx + 1))
+        seg.steady_idx = steady_tail + list(range(steady_start, seg.end_idx + 1))
 
     return segments
 

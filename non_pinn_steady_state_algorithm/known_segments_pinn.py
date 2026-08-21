@@ -231,6 +231,11 @@ if __name__ == "__main__":
 
 
 # This script feeds true segment changepoint into pinn to train on per segment.
+
+# Train a separate constant-Q/S PINN on each ground-truth segment.
+
 # See "steady_state_algorithm_I_pinn_II_result" for results of this.
-# Idea is that if it doesn't perform well even with true stage 1, it wouldn't work well with inaccurate
-# stage1 data derived from the algorithmic method.
+
+# This experiment isolates PINN parameter estimation from segmentation error.
+# If the PINN performs poorly even with ground-truth segments, inaccurate
+# segmentation is not the sole explanation for its poor parameter recovery.

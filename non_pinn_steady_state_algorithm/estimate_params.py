@@ -7,7 +7,7 @@ for a single well-mixed zone with piecewise-constant Q and S:
     C(t) = Css + (C0 - Css) * exp(-t/tau),  Css = C_out + S/Q,  tau = V/Q
 
 Per segment:
-  Css  = mean of the last portion of the steady-labeled points where it plateaus,
+  Css  = mean of the last portion of the steady-labeled points (where it possibly plateaus),
          not the whole steady region; see estimate_css()
   tau  = fit via nonlinear least squares (curve_fit) on
          C(t) = Css_fit + (C0 - Css_fit)*exp(-t/tau), with C0 fixed to
@@ -57,7 +57,7 @@ def estimate_css(t, C, steady_idx, fraction=0.2):
     return float(np.mean(C[plateau_idx]))
 
 
-def estimate_tau(t, C, transient_idx, Css):  # large tau version, problematic
+def estimate_tau(t, C, transient_idx, Css):
     """
     Estimate tau (and refine Css) for one segment via nonlinear least
     squares on C(t) directly (not the log-linearized form).
@@ -83,8 +83,7 @@ def estimate_tau(t, C, transient_idx, Css):  # large tau version, problematic
     CC = np.asarray(C)[transient_idx]
     C0 = CC[0]  # known exactly, not fitted
 
-    # plotting the data fed into estimate_tau: confirm the window handed to the fit
-    # captures the decay shape you expect before trusting the fit result
+    # plotting the data fed into estimate_tau: confirm what window was handed to the fit
     plt.figure(figsize=(6, 4))
     plt.plot(tt, CC, marker="o")
     plt.axhline(Css, linestyle="--", label="Css")
@@ -119,17 +118,6 @@ def estimate_tau(t, C, transient_idx, Css):  # large tau version, problematic
     print("Css guess:", Css)
 
     return float(tau), float(r2)
-
-
-def get_full_transient_idx(seg):
-    """
-    Build the transient index range for a segment as everything between
-    the end of the old steady region and the start of the new one
-    """
-    transient_start = seg.steady_idx[-1] + 1     # right after the old steady region ends
-    transient_end = seg.steady_idx_next[0] - 1   # right before the new steady region begins
-
-    return np.arange(transient_start, transient_end + 1)
 
 
 def estimate_segment(t, C, seg, V, C_out):

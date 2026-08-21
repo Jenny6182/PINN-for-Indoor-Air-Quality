@@ -1,8 +1,14 @@
+
 """
-Stage 1 replacement: label each timestep as 'steady' or 'transient'
-using a smoothed derivative of the measured concentration, then cut
-segments at transient-after-steady boundaries.
+Stage 1: label each timestep as steady or transient using a
+Savitzky-Golay-smoothed derivative of the measured CO₂ concentration.
+
+Steady candidates are identified using a percentile threshold on
+|dC/dt| and retained only when they occur in sufficiently long
+consecutive runs. Segment construction is handled separately by
+segment_cutter.py.
 """
+
 import numpy as np
 from scipy.signal import savgol_filter
 

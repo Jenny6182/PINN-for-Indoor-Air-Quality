@@ -2,8 +2,6 @@
 Stage 1 replacement: label each timestep as 'steady' or 'transient'
 using a smoothed derivative of the measured concentration, then cut
 segments at transient-after-steady boundaries.
-
-No physics loss, no PINN — just a rolling-slope threshold.
 """
 import numpy as np
 from scipy.signal import savgol_filter
@@ -32,10 +30,10 @@ def label_steady(t, C, window_length=7, polyorder=2,
     """
     Returns a boolean array: True = steady, False = transient.
 
-    A point is a *candidate* steady point if |dC/dt| falls below the
-    `slope_percentile` of the whole trace's |dC/dt| distribution.
+    A point is a candidate steady point if |dC/dt| falls below the
+    'slope_percentile' of the whole trace's |dC/dt| distribution.
     Candidates are only kept as steady if they're part of a run of at
-    least `min_run` consecutive candidate points.
+    least 'min_run' consecutive candidate points.
     """
     dCdt = smoothed_derivative(t, C, window_length, polyorder)
     abs_slope = np.abs(dCdt)

@@ -117,7 +117,7 @@ def physics_residual(model, T_col, t_max, t_min, c_std, c_mean):
 def train_loop(model, optimizer, scheduler, T_train, C_train, T_col,
                t_max, t_min, c_std, c_mean, history):
     """
-    Runs the full training loop and populates `history` in-place.
+    Runs the full training loop and populates 'history' in-place.
     Returns the filled history dict.
     """
     # FIX: phys_loss_init lives here, not at module level

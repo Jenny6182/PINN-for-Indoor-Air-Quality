@@ -1,4 +1,6 @@
 """
+Usage: python -m steady_state_algorithm.run_non_pinn_pipeline.py
+
 Full non-PINN pipeline:
   load CSV -> label steady/transient -> cut segments -> refine changepoints
   -> estimate Css, tau per segment -> solve Q, S -> plot results
@@ -21,10 +23,10 @@ from steady_state_algorithm.plotting import *
 def refine_changepoints(t, C, segments, fraction=0.5):
     """
     Refine segment boundaries using the rising edge of the derivative,
-    rather than trusting the initial slope-threshold cut exactly.
+    rather than using the initial slope-threshold cut directly.
 
     For each segment (after the first), finds where |dC/dt| first
-    reaches `fraction` of its peak value within that segment's
+    reaches 'fraction' of its peak value within that segment's
     transient region, and moves the segment's start there. 
     
     After moving the boundary, points are reclassified into
@@ -65,7 +67,7 @@ def refine_changepoints(t, C, segments, fraction=0.5):
         # for visualization purposes
         old_steady_tail = list(range(old_idx, new_idx))
 
-        # re-split [new_idx, seg.end_idx] into transient vs. steady:
+        # resplit [new_idx, seg.end_idx] into transient vs. steady:
         # transient runs until the derivative drops below the median
         # for that range, everything after that is steady
         steady_start = seg.end_idx + 1
@@ -156,8 +158,8 @@ def run(csv_path, V, C_out, time_col="t_hours", conc_col="C_meas_ppm",
 
 
 if __name__ == "__main__":
-    p = argparse.ArgumentParser()
-    p.add_argument("--csv", default="data/datasets/no_noise_dataset/iaq_varyQ_seg5_seed57.csv", help="input CSV file")
+    p = argparse.ArgumentParser()  # previously: iaq_varyQ_seg5_seed57, iaq_varyQ_seg5_seed77
+    p.add_argument("--csv", default="data/datasets/no_noise_dataset/iaq_varyQ_seg11_seed90.csv", help="input CSV file")
     p.add_argument("--V", type=float, default=100.0, help="zone volume")
     p.add_argument("--C_out", type=float, default=420.0, help="outdoor/inlet concentration, ppm")
     p.add_argument("--time_col", default="t_hours")

@@ -304,3 +304,222 @@ def plot_all_varying(result, data, cfg, true_vals=None, output_path="varying.png
 
     fig.suptitle(f"{cfg.name} — Varying PINN", fontsize=13)
     _save(fig, output_path)
+
+
+def plot_all_segments(
+    results,
+    t,
+    C,
+    Q_true,
+    S_true,
+    segments,
+    cfg,
+    output_path="segments.png",
+):
+    """
+    Plot results from multiple constant PINN trainings.
+
+    Shows:
+        1. Training loss for every segment
+        2. Estimated vs true Q for each segment
+        3. Estimated vs true S for each segment
+        4. Reconstruction for every segment
+    """
+
+    n_segments = len(results)
+
+    fig, axes = plt.subplots(
+        4,
+        1,
+        figsize=(15, 20),
+        constrained_layout=True,
+    )
+
+    ax_loss, ax_Q, ax_S, ax_pred = axes
+
+    epochs = get_epochs(cfg)
+
+    # ---- training curves ----
+    for i, result in enumerate(results):
+        history = result["history"]
+
+        ax_loss.semilogy(
+            epochs,
+            history["loss_total"],
+            label=f"Segment {i}",
+            lw=1.5,
+        )
+
+    style_ax(
+        ax_loss,
+        "Training Losses",
+        "Epoch",
+        "Loss",
+    )
+
+
+    # ---- Q/S estimates ----
+    Q_est = []
+    S_est = []
+
+    for result in results:
+        est = result["estimates"]
+
+        Q_est.append(est["Q"][0])
+        S_est.append(est["S"][0])
+
+
+    seg_ids = np.arange(n_segments)
+
+    ax_Q.plot(
+        seg_ids,
+        Q_est,
+        marker="o",
+        label="Estimated",
+    )
+
+    ax_Q.plot(
+        seg_ids,
+        [
+            Q_true[start]
+            for start, end in segments
+        ],
+        marker="x",
+        label="True",
+    )
+
+    style_ax(
+        ax_Q,
+        "Q estimate per segment",
+        "Segment",
+        "Q",
+    )
+
+
+    ax_S.plot(
+        seg_ids,
+        np.array(S_est) / 1e6,
+        marker="o",
+        label="Estimated",
+    )
+
+    ax_S.plot(
+        seg_ids,
+        [
+            S_true[start] / 1e6
+            for start, end in segments
+        ],
+        marker="x",
+        label="True",
+    )
+
+    style_ax(
+        ax_S,
+        "S estimate per segment",
+        "Segment",
+        "S (scaled)",
+    )
+
+
+    # ---- reconstruction ----
+    for i, result in enumerate(results):
+
+        start = result["start_idx"]
+        end = result["end_idx"]
+
+        model = result["model"]
+        stats = result["stats"]
+
+        t_seg = t[start:end]
+        C_seg = C[start:end]
+
+        # plot each segment prediction
+        plot_data_and_model(
+            ax_pred,
+            model,
+            t_seg,
+            C_seg,
+            t_seg,
+            C_seg,
+            stats,
+        )
+
+
+    style_ax(
+        ax_pred,
+        "PINN reconstruction by segment",
+        "Time [h]",
+        "CO2 ppm",
+    )
+
+
+    fig.suptitle(
+        f"{cfg.name} — Segmented Constant PINN",
+        fontsize=13,
+    )
+
+    _save(fig, output_path)
+
+
+def plot_extracted_segments(
+    t,
+    C,
+    segments,
+    output_path="segments_extracted.png",
+):
+    """
+    Plot extracted segments before PINN training.
+
+    Parameters
+    ----------
+    t:
+        Full time array.
+    C:
+        Full concentration array.
+    segments:
+        List of (start_idx, end_idx).
+    """
+
+    fig, ax = plt.subplots(
+        figsize=(12, 5),
+        constrained_layout=True,
+    )
+
+    ax.plot(
+        t,
+        C,
+        lw=1.5,
+        label="C_meas",
+    )
+
+    # mark segment boundaries
+    for i, (start, end) in enumerate(segments[:-1]):
+        boundary_time = t[end]
+
+        ax.axvline(
+            boundary_time,
+            color="gray",
+            linestyle="--",
+            lw=1.2,
+            label="changepoint" if i == 0 else None,
+        )
+
+    # optionally label segments
+    for i, (start, end) in enumerate(segments):
+        mid = (t[start] + t[end-1]) / 2
+        ax.text(
+            mid,
+            np.max(C),
+            f"Seg {i}",
+            ha="center",
+            fontsize=10,
+        )
+
+    style_ax(
+        ax,
+        "Extracted True Segments",
+        "Time [h]",
+        "CO₂ ppm",
+    )
+
+    _save(fig, output_path)

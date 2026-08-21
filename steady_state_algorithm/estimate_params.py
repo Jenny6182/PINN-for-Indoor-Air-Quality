@@ -1,6 +1,6 @@
 """
 Stage 2: closed-form parameter estimation per segment.
-No PINN, each segment is solved independently using the analytical solution 
+Each segment is solved independently using the analytical solution 
 for a single well-mixed zone with piecewise-constant Q and S:
 
     V dC/dt = Q(C_out - C) + S

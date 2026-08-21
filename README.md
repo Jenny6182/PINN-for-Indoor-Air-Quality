@@ -66,7 +66,7 @@ by minimizing both data loss and physics residual loss.
 
 ## Repository Structure
 
-```
+'''
 core/
     pinn/              # PINN models, trainer, parameter models
     scan/              # Stage 1 changepoint detection
@@ -83,7 +83,7 @@ data/
     datasets/          # generated datasets
 
 results/               # experiment outputs
-```
+'''
 
 ---
 
@@ -95,7 +95,7 @@ The repository is organized around the typical lifecycle of an IAQ PINN experime
    - Create synthetic datasets or use existing datasets for training and evaluation.
 
 2. **Configure an experiment**
-   - Define the physics, model architecture, training settings, and dataset through an `ExperimentConfig`.
+   - Define the physics, model architecture, training settings, and dataset through an 'ExperimentConfig'.
 
 3. **Train a model**
    - Run one of the available PINN pipelines (e.g., Simple PINN, Varying PINN, RAA-PINN).
@@ -110,7 +110,7 @@ The repository is organized around the typical lifecycle of an IAQ PINN experime
 
 ## Configuration
 
-All experiments are configured through a single `ExperimentConfig` object, which contains
+All experiments are configured through a single 'ExperimentConfig' object, which contains
 
 - physics parameters
 - training hyperparameters
@@ -120,15 +120,15 @@ All experiments are configured through a single `ExperimentConfig` object, which
 
 The three provided presets are
 
-- `default_simple_config()`
-- `default_varying_config()`
-- `default_raa_config()`
+- 'default_simple_config()'
+- 'default_varying_config()'
+- 'default_raa_config()'
 
 ---
 
 ## Quick Start
 
-```python
+'''python
 from experiment.configs.presets.raa import default_raa_config
 from experiment.pipelines.one_raapinn import raa_pipeline
 
@@ -138,13 +138,13 @@ cfg = default_raa_config(
 )
 
 result = raa_pipeline(cfg)
-```
+'''
 
 ---
 
 ## Key Design Principles
 
-- **Configuration-driven** experiments through `ExperimentConfig`
+- **Configuration-driven** experiments through 'ExperimentConfig'
 - **Unified interfaces** across all PINN variants
 - **Modular pipeline** separating data generation, training, evaluation, visualization, and analysis
 - **Reusable components** to simplify experimentation with new parameter models and training strategies

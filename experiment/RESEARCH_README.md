@@ -1,6 +1,6 @@
 # Experiment Framework and Research History
 
-This document describes the **research methodology and development process** behind the PINN-based indoor air quality (IAQ) parameter estimation framework — what was implemented, what was investigated, and why. It does **not** cover numerical results, performance comparisons, failure cases, or scientific conclusions; those live in the separate results documentation. It assumes the problem setup and PINN variants described in the top-level project README, and does not describe code layout in detail — see the `experiment/` code README for that.
+This document describes the **research methodology and development process** behind the PINN-based indoor air quality (IAQ) parameter estimation framework — what was implemented, what was investigated, and why. It does **not** cover numerical results, performance comparisons, failure cases, or scientific conclusions; those live in the separate results documentation (see the results/ subfolder). It assumes the problem setup and PINN variants described in the top-level project README, and does not describe code layout in detail — see the `experiment/` code README for that.
 
 ---
 
@@ -267,3 +267,25 @@ Some files in `experiment/` correspond to earlier versions of the research code,
 - **analysis and tuning scripts** — the procedures used to investigate and tune the models
 
 The goal is preserving development history, not requiring every earlier experiment to be rewritten under the final architecture.
+
+## 17. Future Directions
+
+Several directions remain for further investigation:
+
+1. **Compare against a linear-model baseline.**  
+   Compare the PINN and RA-PINN approaches against conventional parameter-estimation methods based directly on the governing linear ODE. This will help determine whether the neural-network-based approach provides an advantage over simpler algorithmic methods.
+
+2. **Validate \(Q\)/\(S\) estimates through CO₂ trajectory reconstruction.**  
+   Use the estimated \(Q(t)\) and \(S(t)\) values to solve the governing CO₂ mass-balance equation and reconstruct the corresponding CO₂ trajectory. Compare this reconstructed trajectory with the observed CO₂ data and the known analytical solution. This will help determine whether inaccurate parameter estimates can nevertheless produce accurate CO₂ dynamics and provide further insight into the identifiability of \(Q\) and \(S\).
+
+3. **Investigate the identifiability of \(Q\) and \(S\).**  
+   Further investigate whether ventilation rate \(Q\) and source rate \(S\) can be uniquely recovered from CO₂ observations. In particular, examine whether multiple combinations of \(Q\) and \(S\) can produce similar CO₂ trajectories, which may indicate a fundamental limitation in parameter recovery rather than a failure of the optimization method.
+
+4. **Improve Stage I changepoint detection.**  
+   The current Stage I approach was primarily designed around data containing steady and transient regions, where changepoints can be identified from transitions between these behaviors. Future work could develop a more general detection method that also performs reliably on continuously transient data without identifiable steady-state regions.
+
+5. **Improve Stage II parameter estimation.**  
+   Investigate alternative algorithmic approaches for refining changepoints and estimating segment-wise parameters. Future work could focus on improving robustness to noise, imperfect Stage I initialization, and coupling between \(Q\) and \(S\).
+
+6. **Further investigate and improve the RAA-PINN approach.**  
+   Explore alternative parameterizations, network architectures, loss functions, initialization strategies, training schedules, and hyperparameter configurations. However, improvements to the PINN formulation may need to be considered alongside the identifiability problem, since better optimization alone may not enable unique recovery of \(Q\) and \(S\).

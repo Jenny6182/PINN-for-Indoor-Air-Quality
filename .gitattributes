@@ -1,12 +1,3 @@
 # Exclude documentation from GitHub language statistics
 
-*.md linguist-documentation
-
-# /README.md linguist-documentation
-# /RESEARCH_SUMMARY.md linguist-documentation
-# /results/README.md linguist-documentation
-# /tests/README.md linguist-documentation
-# /experiment/README.md linguist-documentation
-# /non_pinn_algorithm/README.md linguist-documentation
-# /data/README.md linguist-documentation
-# /core/README.md linguist-documentation
+results/**/*.html linguist-generated

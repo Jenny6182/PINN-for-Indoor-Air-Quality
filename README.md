@@ -110,7 +110,7 @@ tests/                 # preliminary tests to verify initial pipelines run
 The repository is organized around the typical lifecycle of an IAQ PINN experiment:
 
 1. **Generate or load datasets**
-   - Create synthetic datasets or use existing datasets for training and evaluation.
+   - Create synthetic datasets for training and evaluation.
 
 2. **Configure an experiment**
    - Define the physics, model architecture, training settings, and dataset through an `ExperimentConfig`.
